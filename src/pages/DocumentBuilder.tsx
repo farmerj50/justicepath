@@ -137,7 +137,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
             <label htmlFor="notice-date" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
               What date did you receive the notice?
             </label>
-            <div style={{ position: 'relative', display: 'inline-block', width: '60%' }}>
+            <div style={{ position: 'relative', display: 'inline-block', width: '60%', height: '48px' }}>
               <DatePicker
                 id="notice-date"
                 selected={noticeDateObject}
@@ -155,12 +155,13 @@ Also suggest one helpful follow-up question the user might want to ask next.
               />
               <FaCalendarAlt style={{
                 position: 'absolute',
-                right: '15px',
+                right: '14px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#fff',
+                color: '#bbb',
                 fontSize: '1.2rem',
-                pointerEvents: 'none'
+                pointerEvents: 'none',
+                opacity: 0.8
               }} />
             </div>
             <div style={buttonRowStyle}>
