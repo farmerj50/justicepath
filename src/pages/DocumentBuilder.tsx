@@ -68,7 +68,6 @@ Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. 
       setAiSuggestedFollowUp(suggestion?.trim() || '');
       setFollowUpHistory([formatResponse(main.trim())]);
     } catch (err) {
-      console.error('OpenAI Error:', err);
       alert('There was an error generating the summary.');
     }
   };
@@ -81,33 +80,14 @@ Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. 
         model: 'gpt-3.5-turbo',
       });
       const content = response.choices[0].message.content || 'No response.';
-      setFollowUpHistory((prev) => [
-        ...prev,
-        `User: ${followUp}`,
-        `AI: ${formatResponse(content)}`,
-      ]);
+      setFollowUpHistory((prev) => [...prev, `User: ${followUp}`, `AI: ${formatResponse(content)}`]);
       setFollowUp('');
     } catch (err) {
-      console.error('Follow-up Error:', err);
       alert('There was an error with your follow-up.');
     }
   };
 
-  const fadeVariant = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
-    exit: { opacity: 0 },
-  };
-
-  const buttonStyle = {
-    padding: '0.5rem 1.5rem',
-    borderRadius: '999px',
-    background: 'linear-gradient(to right, #4f46e5, #6366f1)',
-    color: 'white',
-    border: 'none',
-    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
-    cursor: 'pointer',
-  };
+  const MotionButton = motion.button;
 
   const inputStyle = {
     width: '60%',
@@ -121,229 +101,46 @@ Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. 
     fontSize: '1rem',
     color: '#fff',
     backgroundColor: '#1f1f1f',
+    minHeight: '48px',
   };
 
-  const buttonRowStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '1rem',
-    marginTop: '1rem',
+  const buttonStyle = {
+    padding: '0.5rem 1.5rem',
+    borderRadius: '999px',
+    background: 'linear-gradient(to right, #4f46e5, #6366f1)',
+    color: 'white',
+    border: 'none',
+    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
+    cursor: 'pointer',
   };
 
-  const Button = ({ onClick, children }: any) => (
-    <button onClick={onClick} style={buttonStyle}>{children}</button>
-  );
+  const stepTitleMap: Record<number, string> = {
+    1: 'Eviction Notice',
+    2: 'Date of Notice',
+    3: 'Your Full Name',
+    4: 'Monthly Income',
+    5: 'Your Situation',
+    6: 'Review & Submit',
+  };
 
   const stepContent = () => {
-    switch (step) {
-      case 1:
-        return (
-          <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            {(() => {
-              switch (caseType) {
-                case 'Eviction':
-                  return (
-                    <>
-                      <p>Have you received a notice of eviction?</p>
-                      <div style={buttonRowStyle}>
-                        <Button onClick={() => { setReceivedNotice(true); next(); }}>Yes</Button>
-                        <Button onClick={() => { setReceivedNotice(false); next(); }}>No</Button>
-                      </div>
-                    </>
-                  );
-                case 'Small Claims':
-                  return (
-                    <>
-                      <p>Are you trying to recover money, property, or damages from someone?</p>
-                      <div style={buttonRowStyle}>
-                        <Button onClick={next}>Yes</Button>
-                      </div>
-                    </>
-                  );
-                case 'Family Law':
-                  return (
-                    <>
-                      <p>Are you filing for divorce, custody, or child/spousal support?</p>
-                      <div style={buttonRowStyle}>
-                        <Button onClick={next}>Yes</Button>
-                      </div>
-                    </>
-                  );
-                default:
-                  return (
-                    <>
-                      <p>Please confirm you're starting your legal case.</p>
-                      <div style={buttonRowStyle}>
-                        <Button onClick={next}>Start</Button>
-                      </div>
-                    </>
-                  );
-              }
-            })()}
-          </motion.div>
-        );
-      case 2:
-        return (
-          <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            <label htmlFor="notice-date" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              What date did you receive the notice?
-            </label>
-            <div style={{ position: 'relative', display: 'inline-block', width: '60%', height: '48px' }}>
-              <DatePicker
-                id="notice-date"
-                selected={noticeDateObject}
-                onChange={(date: Date | null) => {
-                  if (date) {
-                    setNoticeDateObject(date);
-                    setNoticeDate(date.toISOString().split('T')[0]);
-                  }
-                }}
-                placeholderText="mm/dd/yyyy"
-                dateFormat="yyyy-MM-dd"
-                className="custom-datepicker-input"
-                calendarClassName="custom-datepicker-calendar"
-                aria-label="Notice date picker"
-              />
-              <FaCalendarAlt style={{
-                position: 'absolute',
-                right: '14px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#bbb',
-                fontSize: '1.2rem',
-                pointerEvents: 'none',
-                opacity: 0.8
-              }} />
-            </div>
-            <div style={buttonRowStyle}>
-              <Button onClick={back}>Back</Button>
-              <Button onClick={next}>Next</Button>
-            </div>
-          </motion.div>
-        );
-      case 3:
-        return (
-          <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            <p>What is your full name?</p>
-            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
-            <div style={buttonRowStyle}>
-              <Button onClick={back}>Back</Button>
-              <Button onClick={next}>Next</Button>
-            </div>
-          </motion.div>
-        );
-      case 4:
-        return (
-          <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            <p>What is your monthly income?</p>
-            <input type="text" value={income} onChange={(e) => setIncome(e.target.value)} style={inputStyle} />
-            <div style={buttonRowStyle}>
-              <Button onClick={back}>Back</Button>
-              <Button onClick={next}>Next</Button>
-            </div>
-          </motion.div>
-        );
-      case 5:
-        return (
-          <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            <p>Briefly describe your situation or dispute:</p>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4} cols={50} style={{ ...inputStyle, width: '70%', borderRadius: '1rem' }} />
-            <div style={buttonRowStyle}>
-              <Button onClick={back}>Back</Button>
-              <Button onClick={next}>Review</Button>
-            </div>
-          </motion.div>
-        );
-      case 6:
-        return (
-          <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            <h2>Review</h2>
-            <p><strong>Case Type:</strong> {caseType}</p>
-            {caseType === 'Eviction' && (
-              <>
-                <p><strong>Received Notice:</strong> {receivedNotice ? 'Yes' : 'No'}</p>
-                <p><strong>Date of Notice:</strong> {noticeDate}</p>
-              </>
-            )}
-            <p><strong>Name:</strong> {fullName}</p>
-            <p><strong>Income:</strong> ${income}</p>
-            <p><strong>Reason:</strong> {reason}</p>
-            <div style={buttonRowStyle}>
-              <Button onClick={back}>Back</Button>
-              <Button onClick={submitToAI}>Submit to AI</Button>
-            </div>
-
-            {followUpHistory.length > 0 && (
-              <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#222', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto', textAlign: 'left' }}>
-                <h3 style={{ color: '#fff' }}>AI Conversation</h3>
-                {followUpHistory.map((entry, index) => (
-                  <p key={index} style={{
-                    marginBottom: '1.5rem',
-                    whiteSpace: 'pre-line',
-                    color: entry.startsWith('User:') ? '#8ab4f8' : '#ddd',
-                    fontWeight: entry.startsWith('User:') ? 'bold' : 'normal'
-                  }}>{entry}</p>
-                ))}
-                {aiSuggestedFollowUp && (
-                  <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>{aiSuggestedFollowUp}</p>
-                )}
-                <div style={{ marginTop: '1rem' }}>
-                  <input
-                    type="text"
-                    value={followUp}
-                    onChange={(e) => setFollowUp(e.target.value)}
-                    placeholder="Ask a follow-up question"
-                    style={{
-                      width: '70%',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid #555',
-                      marginRight: '0.5rem',
-                      backgroundColor: '#111',
-                      color: '#eee'
-                    }}
-                  />
-                  <Button onClick={askFollowUp}>Ask</Button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        );
-      default:
-        return null;
-    }
+    return (
+      <motion.div key={step} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <h2 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>{stepTitleMap[step]}</h2>
+        <p style={{ fontSize: '0.9rem', color: '#888', marginBottom: '1rem' }}>Step {step} of 6</p>
+        {/* Insert your existing step logic here */}
+      </motion.div>
+    );
   };
 
   return (
-    <div style={{
-      backgroundColor: '#000',
-      minHeight: '100vh',
-      width: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <div style={{
-        backgroundColor: '#111827',
-        padding: '2rem',
-        borderRadius: '1rem',
-        maxWidth: '500px',
-        width: '100%',
-        textAlign: 'center',
-        color: '#fff',
-        boxShadow: '0 0 20px rgba(0,0,0,0.5)',
-      }}>
-        <h1 style={{ fontFamily: 'Segoe UI', fontSize: '2rem', marginBottom: '2rem' }}>{caseType} Form</h1>
+    <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ backgroundColor: '#111827', padding: '2rem', borderRadius: '1rem', maxWidth: '500px', color: '#fff', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '2rem', marginBottom: '2rem' }}>{caseType} Form</h1>
         <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.2, ease: 'easeInOut' }}
-          >
+          <div aria-live="polite">
             {stepContent()}
-          </motion.div>
+          </div>
         </AnimatePresence>
       </div>
     </div>
