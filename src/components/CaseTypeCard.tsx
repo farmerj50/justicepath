@@ -1,14 +1,20 @@
-interface CaseTypeCardProps {
+interface Props {
   title: string;
   icon: string;
   onClick: () => void;
+  selected?: boolean;
 }
 
-const CaseTypeCard: React.FC<CaseTypeCardProps> = ({ title, icon, onClick }) => {
+const CaseTypeCard: React.FC<Props> = ({ title, icon, onClick, selected }) => {
   return (
-    <div className="case-card" onClick={onClick}>
-      <span className="emoji-icon" style={{ fontSize: '2rem' }}>{icon}</span>
-      <h3>{title}</h3>
+    <div
+      className={`case-card ${selected ? 'selected' : ''}`}
+      onClick={onClick}
+      role="button"
+      aria-pressed={selected}
+    >
+      <div className="emoji-icon">{icon}</div>
+      <strong>{title}</strong>
     </div>
   );
 };

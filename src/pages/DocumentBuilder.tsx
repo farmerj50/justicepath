@@ -23,19 +23,34 @@ const DocumentBuilder: React.FC = () => {
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
-  const generatePrompt = (includeFollowUp = false) => `
-You are a legal assistant. A user has filled out the following case info:
+  const generatePrompt = (includeFollowUp = false) => {
+    const base = `
+You are a legal assistant. A user has filled out the following information:
 
 Case Type: ${caseType}
 Name: ${fullName}
 Monthly Income: ${income}
-${caseType === 'Eviction' ? `Received Notice: ${receivedNotice ? 'Yes' : 'No'}\nNotice Date: ${noticeDate}` : ''}
 Reason: ${reason}
 ${includeFollowUp ? `\nFollow-up question: ${followUp}` : ''}
-
-Please give practical next steps this person can take, and recommendations. Be detailed but avoid recommending legal counsel as the only step.
-Also suggest one helpful follow-up question the user might want to ask next.
 `;
+
+    const evictionAddendum = `
+Received Notice: ${receivedNotice ? 'Yes' : 'No'}
+Notice Date: ${noticeDate}
+`;
+
+    const promptIntro = {
+      Eviction: `This user is facing a possible eviction. Provide clear legal next steps for someone in this situation.`,
+      'Small Claims': `This user is pursuing a small claims case. Provide a list of realistic actions they can take to proceed.`,
+      'Family Law': `This user is dealing with a family law issue. Offer appropriate steps based on the context (e.g., divorce, custody, support).`,
+    };
+
+    return `${base}${caseType === 'Eviction' ? evictionAddendum : ''}
+
+${promptIntro[caseType as keyof typeof promptIntro] ?? ''}
+
+Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. End with one helpful follow-up question they might want to ask.`;
+  };
 
   const formatResponse = (text: string) =>
     text.replace(/(\d+)\.\s*/g, (_, n) => `\n\n${n}. `).trim();
@@ -124,11 +139,47 @@ Also suggest one helpful follow-up question the user might want to ask next.
       case 1:
         return (
           <motion.div variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
-            <p>Have you received a notice of eviction?</p>
-            <div style={buttonRowStyle}>
-              <Button onClick={() => { setReceivedNotice(true); next(); }}>Yes</Button>
-              <Button onClick={() => { setReceivedNotice(false); next(); }}>No</Button>
-            </div>
+            {(() => {
+              switch (caseType) {
+                case 'Eviction':
+                  return (
+                    <>
+                      <p>Have you received a notice of eviction?</p>
+                      <div style={buttonRowStyle}>
+                        <Button onClick={() => { setReceivedNotice(true); next(); }}>Yes</Button>
+                        <Button onClick={() => { setReceivedNotice(false); next(); }}>No</Button>
+                      </div>
+                    </>
+                  );
+                case 'Small Claims':
+                  return (
+                    <>
+                      <p>Are you trying to recover money, property, or damages from someone?</p>
+                      <div style={buttonRowStyle}>
+                        <Button onClick={next}>Yes</Button>
+                      </div>
+                    </>
+                  );
+                case 'Family Law':
+                  return (
+                    <>
+                      <p>Are you filing for divorce, custody, or child/spousal support?</p>
+                      <div style={buttonRowStyle}>
+                        <Button onClick={next}>Yes</Button>
+                      </div>
+                    </>
+                  );
+                default:
+                  return (
+                    <>
+                      <p>Please confirm you're starting your legal case.</p>
+                      <div style={buttonRowStyle}>
+                        <Button onClick={next}>Start</Button>
+                      </div>
+                    </>
+                  );
+              }
+            })()}
           </motion.div>
         );
       case 2:
