@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import openai from '../utils/openaiClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +8,8 @@ import { FaCalendarAlt } from 'react-icons/fa';
 
 const DocumentBuilder: React.FC = () => {
   const { caseType } = useParams<{ caseType: string }>();
+  const STORAGE_KEY = `formData-${caseType}`;
+
   const [step, setStep] = useState(1);
   const [fullName, setFullName] = useState('');
   const [reason, setReason] = useState('');
@@ -19,6 +21,23 @@ const DocumentBuilder: React.FC = () => {
   const [aiSuggestedFollowUp, setAiSuggestedFollowUp] = useState('');
   const [followUp, setFollowUp] = useState('');
   const [followUpHistory, setFollowUpHistory] = useState<string[]>([]);
+
+  const persist = (key: string, value: any) => {
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, [key]: value }));
+  };
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (saved.fullName) setFullName(saved.fullName);
+    if (saved.income) setIncome(saved.income);
+    if (saved.reason) setReason(saved.reason);
+    if (saved.receivedNotice !== undefined) setReceivedNotice(saved.receivedNotice);
+    if (saved.noticeDate) {
+      setNoticeDate(saved.noticeDate);
+      setNoticeDateObject(new Date(saved.noticeDate));
+    }
+  }, [caseType]);
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
@@ -122,8 +141,8 @@ Also suggest one helpful follow-up question the user might want to ask next.
               <>
                 <p>Have you received a notice of eviction?</p>
                 <div style={buttonRowStyle}>
-                  <button onClick={() => { setReceivedNotice(true); next(); }} style={buttonStyle}>Yes</button>
-                  <button onClick={() => { setReceivedNotice(false); next(); }} style={buttonStyle}>No</button>
+                  <button onClick={() => { setReceivedNotice(true); persist('receivedNotice', true); next(); }} style={buttonStyle}>Yes</button>
+                  <button onClick={() => { setReceivedNotice(false); persist('receivedNotice', false); next(); }} style={buttonStyle}>No</button>
                 </div>
               </>
             ) : (
@@ -147,7 +166,9 @@ Also suggest one helpful follow-up question the user might want to ask next.
                 onChange={(date: Date | null) => {
                   if (date) {
                     setNoticeDateObject(date);
-                    setNoticeDate(date.toISOString().split('T')[0]);
+                    const iso = date.toISOString().split('T')[0];
+                    setNoticeDate(iso);
+                    persist('noticeDate', iso);
                   }
                 }}
                 placeholderText="mm/dd/yyyy"
@@ -166,7 +187,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
         return (
           <>
             <p>What is your full name?</p>
-            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
+            <input type="text" value={fullName} onChange={(e) => { setFullName(e.target.value); persist('fullName', e.target.value); }} style={inputStyle} />
             <div style={buttonRowStyle}>
               <button onClick={back} style={buttonStyle}>Back</button>
               <button onClick={next} style={buttonStyle}>Next</button>
@@ -177,7 +198,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
         return (
           <>
             <p>What is your monthly income?</p>
-            <input type="text" value={income} onChange={(e) => setIncome(e.target.value)} style={inputStyle} />
+            <input type="text" value={income} onChange={(e) => { setIncome(e.target.value); persist('income', e.target.value); }} style={inputStyle} />
             <div style={buttonRowStyle}>
               <button onClick={back} style={buttonStyle}>Back</button>
               <button onClick={next} style={buttonStyle}>Next</button>
@@ -188,7 +209,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
         return (
           <>
             <p>Briefly describe your situation or dispute:</p>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4} style={{ ...inputStyle, width: '70%', borderRadius: '1rem' }} />
+            <textarea value={reason} onChange={(e) => { setReason(e.target.value); persist('reason', e.target.value); }} rows={4} style={{ ...inputStyle, width: '70%', borderRadius: '1rem' }} />
             <div style={buttonRowStyle}>
               <button onClick={back} style={buttonStyle}>Back</button>
               <button onClick={next} style={buttonStyle}>Review</button>
@@ -212,6 +233,41 @@ Also suggest one helpful follow-up question the user might want to ask next.
               <button onClick={back} style={buttonStyle}>Back</button>
               <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
             </div>
+
+            {followUpHistory.length > 0 && (
+              <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#222', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto', textAlign: 'left' }}>
+                <h3 style={{ color: '#fff' }}>AI Conversation</h3>
+                {followUpHistory.map((entry, index) => (
+                  <p key={index} style={{
+                    marginBottom: '1.5rem',
+                    whiteSpace: 'pre-line',
+                    color: entry.startsWith('User:') ? '#8ab4f8' : '#ddd',
+                    fontWeight: entry.startsWith('User:') ? 'bold' : 'normal'
+                  }}>{entry}</p>
+                ))}
+                {aiSuggestedFollowUp && (
+                  <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>{aiSuggestedFollowUp}</p>
+                )}
+                <div style={{ marginTop: '1rem' }}>
+                  <input
+                    type="text"
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                    placeholder="Ask a follow-up question"
+                    style={{
+                      width: '70%',
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid #555',
+                      marginRight: '0.5rem',
+                      backgroundColor: '#111',
+                      color: '#eee'
+                    }}
+                  />
+                  <button onClick={askFollowUp} style={buttonStyle}>Ask</button>
+                </div>
+              </div>
+            )}
           </>
         );
       default:
