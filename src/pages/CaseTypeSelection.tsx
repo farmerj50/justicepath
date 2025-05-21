@@ -18,10 +18,13 @@ const CaseTypeSelection: React.FC = () => {
 
   return (
     <div className="container">
-      <header>
-        <h1>JusticePath</h1>
-        <p>Select your case type to begin:</p>
-      </header>
+<header>
+     <h1 className="title-heading">
+    ⚖️ <span>JusticePath</span>
+    </h1>
+    <p className="subtitle-text">Select the type of legal issue you're dealing with:</p>
+</header>
+
       <section className="card-container">
         <CaseTypeCard title="Eviction" icon={evictionIcon} onClick={() => handleSelect('Eviction')} />
         <CaseTypeCard title="Small Claims" icon={smallClaimsIcon} onClick={() => handleSelect('Small Claims')} />
