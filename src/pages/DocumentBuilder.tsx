@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-
 import { useParams } from 'react-router-dom';
 import openai from '../utils/openaiClient';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,8 +11,6 @@ import {
   isValidReason,
   isValidNoticeDate
 } from '../utils/validation';
-
-
 
 const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
@@ -31,29 +28,96 @@ const DocumentBuilder: React.FC = () => {
   const [aiSuggestedFollowUp, setAiSuggestedFollowUp] = useState('');
   const [followUp, setFollowUp] = useState('');
   const [followUpHistory, setFollowUpHistory] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<number, string>>({});
+
+  const inputStyle = {
+    width: '60%',
+    padding: '0.75rem 1rem',
+    marginBottom: '1rem',
+    borderRadius: '999px',
+    border: '1px solid #888',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.15)',
+    outline: 'none',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '1rem',
+    color: '#fff',
+    backgroundColor: '#1f1f1f',
+    minHeight: '48px'
+  };
+
+  const buttonStyle = {
+    padding: '0.5rem 1.5rem',
+    borderRadius: '999px',
+    background: 'linear-gradient(to right, #4f46e5, #6366f1)',
+    color: 'white',
+    border: 'none',
+    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
+    cursor: 'pointer'
+  };
+
+  const buttonRowStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1rem',
+    marginTop: '1rem'
+  };
+
+  const validateStep = (): boolean => {
+    let isValid = true;
+    let errorMsg = '';
+
+    switch (step) {
+      case 1:
+        if (caseType === 'Eviction' && receivedNotice === null) {
+          isValid = false;
+          errorMsg = 'Please select an option.';
+        }
+        break;
+      case 2:
+        if (caseType === 'Eviction' && !isValidNoticeDate(noticeDate)) {
+          isValid = false;
+          errorMsg = 'Please select a valid date.';
+        }
+        break;
+      case 3:
+        if (!isValidFullName(fullName)) {
+          isValid = false;
+          errorMsg = 'Please enter your full name.';
+        }
+        break;
+      case 4:
+        if (!isValidIncome(income)) {
+          isValid = false;
+          errorMsg = 'Enter a valid income (e.g., 2500 or 2500.50).';
+        }
+        break;
+      case 5:
+        if (!isValidReason(reason)) {
+          isValid = false;
+          errorMsg = 'Please describe your situation in more detail.';
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (!isValid) {
+      setErrors((prev) => ({ ...prev, [step]: errorMsg }));
+    } else {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[step];
+        return newErrors;
+      });
+    }
+
+    return isValid;
+  };
 
   const persist = (key: string, value: any) => {
     const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, [key]: value }));
   };
-  const isStepValid = () => {
-  switch (step) {
-    case 1:
-      return caseType === 'Eviction' ? receivedNotice !== null : true;
-    case 2:
-      return caseType === 'Eviction' ? !!noticeDate : true;
-    case 3:
-      return fullName.trim().length > 2;
-    case 4:
-      return /^\d+(\.\d{1,2})?$/.test(income.trim());
-    case 5:
-      return reason.trim().length > 10;
-    default:
-      return true;
-  }
-};
-
-
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -68,12 +132,10 @@ const DocumentBuilder: React.FC = () => {
   }, [caseType]);
 
   const next = () => {
-  if (isStepValid()) {
-    setStep((s) => s + 1);
-  } else {
-    alert('Please complete the required information before proceeding.');
-  }
-};
+    if (validateStep()) {
+      setStep((s) => s + 1);
+    }
+  };
 
   const back = () => setStep((s) => s - 1);
 
@@ -83,7 +145,7 @@ const DocumentBuilder: React.FC = () => {
     3: 'Your Full Name',
     4: 'Monthly Income',
     5: 'Your Situation',
-    6: 'Review & Submit',
+    6: 'Review & Submit'
   };
 
   const generatePrompt = (includeFollowUp = false) => `
@@ -108,7 +170,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
     try {
       const response = await openai.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-3.5-turbo'
       });
       const content = response.choices[0].message.content || '';
       const [main, suggestion] = content.split(/Suggested follow-up:/i);
@@ -125,7 +187,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
     try {
       const response = await openai.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-3.5-turbo'
       });
       const content = response.choices[0].message.content || 'No response.';
       setFollowUpHistory((prev) => [...prev, `User: ${followUp}`, `AI: ${formatResponse(content)}`]);
@@ -134,195 +196,213 @@ Also suggest one helpful follow-up question the user might want to ask next.
       alert('There was an error with your follow-up.');
     }
   };
-
-  const inputStyle = {
-    width: '60%',
-    padding: '0.75rem 1rem',
-    marginBottom: '1rem',
-    borderRadius: '999px',
-    border: '1px solid #888',
-    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.15)',
-    outline: 'none',
-    fontFamily: 'Inter, sans-serif',
-    fontSize: '1rem',
-    color: '#fff',
-    backgroundColor: '#1f1f1f',
-    minHeight: '48px',
-  };
-
-  const buttonStyle = {
-    padding: '0.5rem 1.5rem',
-    borderRadius: '999px',
-    background: 'linear-gradient(to right, #4f46e5, #6366f1)',
-    color: 'white',
-    border: 'none',
-    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
-    cursor: 'pointer',
-  };
-
-  const buttonRowStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '1rem',
-    marginTop: '1rem',
-  };
-
-  const stepContent = () => {
-    switch (step) {
-      case 1:
-        return (
-          <>
-            {caseType === 'Eviction' ? (
-              <>
-                <p>Have you received a notice of eviction?</p>
-                <div style={buttonRowStyle}>
-                  <button onClick={() => { setReceivedNotice(true); persist('receivedNotice', true); next(); }} style={buttonStyle}>Yes</button>
-                  <button onClick={() => { setReceivedNotice(false); persist('receivedNotice', false); next(); }} style={buttonStyle}>No</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p>Let’s begin with your case information.</p>
-                <div style={buttonRowStyle}>
-                  <button onClick={next} style={buttonStyle}>Start</button>
-                </div>
-              </>
-            )}
-          </>
-        );
-     case 2:
+  // 👇 Paste this inside the DocumentBuilder component, just before return (
+const stepContent = () => {
+  switch (step) {
+    case 1:
+      return (
+        <>
+          <p>Have you received a notice of eviction?</p>
+          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          <div style={buttonRowStyle}>
+            <button
+              onClick={() => {
+                setReceivedNotice(true);
+                persist('receivedNotice', true);
+                next();
+              }}
+              style={buttonStyle}
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => {
+                setReceivedNotice(false);
+                persist('receivedNotice', false);
+                next();
+              }}
+              style={buttonStyle}
+            >
+              No
+            </button>
+          </div>
+        </>
+      );
+    case 2:
+      return (
+        <>
+          <p>Date of Notice:</p>
+          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          <div style={{ position: 'relative', width: '60%', margin: '0 auto' }}>
+            <DatePicker
+              selected={noticeDateObject}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  setNoticeDateObject(date);
+                  const iso = date.toISOString().split('T')[0];
+                  setNoticeDate(iso);
+                  persist('noticeDate', iso);
+                }
+              }}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="mm/dd/yyyy"
+              className="custom-datepicker-input"
+              ref={datePickerRef}
+              maxDate={new Date()}
+            />
+            <FaCalendarAlt
+              onClick={() => datePickerRef.current?.setFocus?.()}
+              style={{
+                position: 'absolute',
+                right: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#aaa',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+          <div style={buttonRowStyle}>
+            <button onClick={back} style={buttonStyle}>Back</button>
+            <button onClick={next} style={buttonStyle}>Next</button>
+          </div>
+        </>
+      );
+    case 3:
+      return (
+        <>
+          <p>Full Name:</p>
+          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => {
+              setFullName(e.target.value);
+              persist('fullName', e.target.value);
+            }}
+            style={inputStyle}
+          />
+          <div style={buttonRowStyle}>
+            <button onClick={back} style={buttonStyle}>Back</button>
+            <button onClick={next} style={buttonStyle}>Next</button>
+          </div>
+        </>
+      );
+    case 4:
+      return (
+        <>
+          <p>Monthly Income:</p>
+          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          <input
+            type="text"
+            value={income}
+            onChange={(e) => {
+              setIncome(e.target.value);
+              persist('income', e.target.value);
+            }}
+            style={inputStyle}
+          />
+          <div style={buttonRowStyle}>
+            <button onClick={back} style={buttonStyle}>Back</button>
+            <button onClick={next} style={buttonStyle}>Next</button>
+          </div>
+        </>
+      );
+    case 5:
+      return (
+        <>
+          <p>Your Situation:</p>
+          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          <textarea
+            rows={4}
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              persist('reason', e.target.value);
+            }}
+            style={{ ...inputStyle, width: '100%', borderRadius: '1rem' }}
+          />
+          <div style={buttonRowStyle}>
+            <button onClick={back} style={buttonStyle}>Back</button>
+            <button onClick={next} style={buttonStyle}>Review</button>
+          </div>
+        </>
+      );
+    case 6:
   return (
     <>
-      <label htmlFor="notice-date">What date did you receive the notice?</label>
-      <div style={{ position: 'relative', width: '60%', margin: '0 auto' }}>
-        <DatePicker
-          id="notice-date"
-          selected={noticeDateObject}
-          onChange={(date: Date | null) => {
-            if (date) {
-              setNoticeDateObject(date);
-              const iso = date.toISOString().split('T')[0];
-              setNoticeDate(iso);
-              persist('noticeDate', iso);
-            }
-          }}
-          placeholderText="mm/dd/yyyy"
-          dateFormat="yyyy-MM-dd"
-          className="custom-datepicker-input"
-          ref={datePickerRef}
-        />
-        <FaCalendarAlt
-          onMouseEnter={() => {
-            datePickerRef.current?.setFocus?.();
-          }}
-          style={{
-            position: 'absolute',
-            right: '16px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#aaa',
-            cursor: 'pointer',
-          }}
-        />
-      </div>
+      <p><strong>Case Type:</strong> {caseType}</p>
+      {caseType === 'Eviction' && (
+        <>
+          <p><strong>Received Notice:</strong> {receivedNotice ? 'Yes' : 'No'}</p>
+          <p><strong>Date of Notice:</strong> {noticeDate}</p>
+        </>
+      )}
+      <p><strong>Name:</strong> {fullName}</p>
+      <p><strong>Income:</strong> ${income}</p>
+      <p><strong>Reason:</strong> {reason}</p>
+
       <div style={buttonRowStyle}>
         <button onClick={back} style={buttonStyle}>Back</button>
-        <button onClick={next} style={buttonStyle}>Next</button>
+        <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
       </div>
+
+      {followUpHistory.length > 0 && (
+        <div style={{
+          marginTop: '2rem',
+          padding: '1rem',
+          backgroundColor: '#222',
+          borderRadius: '8px',
+          maxHeight: '300px',
+          overflowY: 'auto',
+          textAlign: 'left'
+        }}>
+          <h3 style={{ color: '#fff' }}>AI Conversation</h3>
+
+          {followUpHistory.map((entry, index) => (
+            <p key={index} style={{
+              marginBottom: '1.5rem',
+              whiteSpace: 'pre-line',
+              color: entry.startsWith('User:') ? '#8ab4f8' : '#ddd',
+              fontWeight: entry.startsWith('User:') ? 'bold' : 'normal'
+            }}>{entry}</p>
+          ))}
+
+          {aiSuggestedFollowUp && (
+            <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>
+              {aiSuggestedFollowUp}
+            </p>
+          )}
+
+          <div style={{ marginTop: '1rem' }}>
+            <input
+              type="text"
+              value={followUp}
+              onChange={(e) => setFollowUp(e.target.value)}
+              placeholder="Ask a follow-up question"
+              style={{
+                width: '70%',
+                padding: '0.75rem',
+                borderRadius: '8px',
+                border: '1px solid #555',
+                marginRight: '0.5rem',
+                backgroundColor: '#111',
+                color: '#eee',
+              }}
+            />
+            <button onClick={askFollowUp} style={buttonStyle}>Ask</button>
+          </div>
+        </div>
+      )}
     </>
   );
 
-      case 3:
-        return (
-          <>
-            <p>What is your full name?</p>
-            <input type="text" value={fullName} onChange={(e) => { setFullName(e.target.value); persist('fullName', e.target.value); }} style={inputStyle} />
-            <div style={buttonRowStyle}>
-              <button onClick={back} style={buttonStyle}>Back</button>
-              <button onClick={next} style={buttonStyle}>Next</button>
-            </div>
-          </>
-        );
-      case 4:
-        return (
-          <>
-            <p>What is your monthly income?</p>
-            <input type="text" value={income} onChange={(e) => { setIncome(e.target.value); persist('income', e.target.value); }} style={inputStyle} />
-            <div style={buttonRowStyle}>
-              <button onClick={back} style={buttonStyle}>Back</button>
-              <button onClick={next} style={buttonStyle}>Next</button>
-            </div>
-          </>
-        );
-      case 5:
-        return (
-          <>
-            <p>Briefly describe your situation or dispute:</p>
-            <textarea value={reason} onChange={(e) => { setReason(e.target.value); persist('reason', e.target.value); }} rows={4} style={{ ...inputStyle, width: '70%', borderRadius: '1rem' }} />
-            <div style={buttonRowStyle}>
-              <button onClick={back} style={buttonStyle}>Back</button>
-              <button onClick={next} style={buttonStyle}>Review</button>
-            </div>
-          </>
-        );
-      case 6:
-        return (
-          <>
-            <p><strong>Case Type:</strong> {caseType}</p>
-            {caseType === 'Eviction' && (
-              <>
-                <p><strong>Received Notice:</strong> {receivedNotice ? 'Yes' : 'No'}</p>
-                <p><strong>Date of Notice:</strong> {noticeDate}</p>
-              </>
-            )}
-            <p><strong>Name:</strong> {fullName}</p>
-            <p><strong>Income:</strong> ${income}</p>
-            <p><strong>Reason:</strong> {reason}</p>
-            <div style={buttonRowStyle}>
-              <button onClick={back} style={buttonStyle}>Back</button>
-              <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
-            </div>
+    default:
+      return null;
+  }
+};
 
-            {followUpHistory.length > 0 && (
-              <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#222', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto', textAlign: 'left' }}>
-                <h3 style={{ color: '#fff' }}>AI Conversation</h3>
-                {followUpHistory.map((entry, index) => (
-                  <p key={index} style={{
-                    marginBottom: '1.5rem',
-                    whiteSpace: 'pre-line',
-                    color: entry.startsWith('User:') ? '#8ab4f8' : '#ddd',
-                    fontWeight: entry.startsWith('User:') ? 'bold' : 'normal'
-                  }}>{entry}</p>
-                ))}
-                {aiSuggestedFollowUp && (
-                  <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>{aiSuggestedFollowUp}</p>
-                )}
-                <div style={{ marginTop: '1rem' }}>
-                  <input
-                    type="text"
-                    value={followUp}
-                    onChange={(e) => setFollowUp(e.target.value)}
-                    placeholder="Ask a follow-up question"
-                    style={{
-                      width: '70%',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid #555',
-                      marginRight: '0.5rem',
-                      backgroundColor: '#111',
-                      color: '#eee'
-                    }}
-                  />
-                  <button onClick={askFollowUp} style={buttonStyle}>Ask</button>
-                </div>
-              </div>
-            )}
-          </>
-        );
-      default:
-        return null;
-    }
-  };
+
 
   return (
     <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -344,7 +424,7 @@ Also suggest one helpful follow-up question the user might want to ask next.
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '0.9rem',
-                boxShadow: Number(index) === step ? '0 0 8px #6366f1' : undefined,
+                boxShadow: Number(index) === step ? '0 0 8px #6366f1' : undefined
               }}
             >
               {index}
@@ -361,6 +441,8 @@ Also suggest one helpful follow-up question the user might want to ask next.
             transition={{ duration: 0.5 }}
           >
             {stepContent()}
+            {/* Your stepContent() function goes here */}
+            {/* Call and render actual content per step */}
           </motion.div>
         </AnimatePresence>
       </div>
