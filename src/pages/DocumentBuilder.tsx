@@ -23,34 +23,28 @@ const DocumentBuilder: React.FC = () => {
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
-  const generatePrompt = (includeFollowUp = false) => {
-    const base = `
-You are a legal assistant. A user has filled out the following information:
+  const stepTitleMap: Record<number, string> = {
+    1: 'Eviction Notice',
+    2: 'Date of Notice',
+    3: 'Your Full Name',
+    4: 'Monthly Income',
+    5: 'Your Situation',
+    6: 'Review & Submit',
+  };
+
+  const generatePrompt = (includeFollowUp = false) => `
+You are a legal assistant. A user has filled out the following case info:
 
 Case Type: ${caseType}
 Name: ${fullName}
 Monthly Income: ${income}
+${caseType === 'Eviction' ? `Received Notice: ${receivedNotice ? 'Yes' : 'No'}\nNotice Date: ${noticeDate}` : ''}
 Reason: ${reason}
 ${includeFollowUp ? `\nFollow-up question: ${followUp}` : ''}
+
+Please give practical next steps this person can take, and recommendations. Be detailed but avoid recommending legal counsel as the only step.
+Also suggest one helpful follow-up question the user might want to ask next.
 `;
-
-    const evictionAddendum = `
-Received Notice: ${receivedNotice ? 'Yes' : 'No'}
-Notice Date: ${noticeDate}
-`;
-
-    const promptIntro = {
-      Eviction: `This user is facing a possible eviction. Provide clear legal next steps for someone in this situation.`,
-      'Small Claims': `This user is pursuing a small claims case. Provide a list of realistic actions they can take to proceed.`,
-      'Family Law': `This user is dealing with a family law issue. Offer appropriate steps based on the context (e.g., divorce, custody, support).`,
-    };
-
-    return `${base}${caseType === 'Eviction' ? evictionAddendum : ''}
-
-${promptIntro[caseType as keyof typeof promptIntro] ?? ''}
-
-Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. End with one helpful follow-up question they might want to ask.`;
-  };
 
   const formatResponse = (text: string) =>
     text.replace(/(\d+)\.\s*/g, (_, n) => `\n\n${n}. `).trim();
@@ -87,8 +81,6 @@ Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. 
     }
   };
 
-  const MotionButton = motion.button;
-
   const inputStyle = {
     width: '60%',
     padding: '0.75rem 1rem',
@@ -114,33 +106,157 @@ Respond in a helpful tone. Avoid suggesting legal counsel as the only solution. 
     cursor: 'pointer',
   };
 
-  const stepTitleMap: Record<number, string> = {
-    1: 'Eviction Notice',
-    2: 'Date of Notice',
-    3: 'Your Full Name',
-    4: 'Monthly Income',
-    5: 'Your Situation',
-    6: 'Review & Submit',
+  const buttonRowStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1rem',
+    marginTop: '1rem',
   };
 
   const stepContent = () => {
-    return (
-      <motion.div key={step} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        <h2 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>{stepTitleMap[step]}</h2>
-        <p style={{ fontSize: '0.9rem', color: '#888', marginBottom: '1rem' }}>Step {step} of 6</p>
-        {/* Insert your existing step logic here */}
-      </motion.div>
-    );
+    switch (step) {
+      case 1:
+        return (
+          <>
+            {caseType === 'Eviction' ? (
+              <>
+                <p>Have you received a notice of eviction?</p>
+                <div style={buttonRowStyle}>
+                  <button onClick={() => { setReceivedNotice(true); next(); }} style={buttonStyle}>Yes</button>
+                  <button onClick={() => { setReceivedNotice(false); next(); }} style={buttonStyle}>No</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>Let’s begin with your case information.</p>
+                <div style={buttonRowStyle}>
+                  <button onClick={next} style={buttonStyle}>Start</button>
+                </div>
+              </>
+            )}
+          </>
+        );
+      case 2:
+        return (
+          <>
+            <label htmlFor="notice-date">What date did you receive the notice?</label>
+            <div style={{ position: 'relative', width: '60%', margin: '0 auto' }}>
+              <DatePicker
+                id="notice-date"
+                selected={noticeDateObject}
+                onChange={(date: Date | null) => {
+                  if (date) {
+                    setNoticeDateObject(date);
+                    setNoticeDate(date.toISOString().split('T')[0]);
+                  }
+                }}
+                placeholderText="mm/dd/yyyy"
+                dateFormat="yyyy-MM-dd"
+                className="custom-datepicker-input"
+              />
+              <FaCalendarAlt style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
+            </div>
+            <div style={buttonRowStyle}>
+              <button onClick={back} style={buttonStyle}>Back</button>
+              <button onClick={next} style={buttonStyle}>Next</button>
+            </div>
+          </>
+        );
+      case 3:
+        return (
+          <>
+            <p>What is your full name?</p>
+            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
+            <div style={buttonRowStyle}>
+              <button onClick={back} style={buttonStyle}>Back</button>
+              <button onClick={next} style={buttonStyle}>Next</button>
+            </div>
+          </>
+        );
+      case 4:
+        return (
+          <>
+            <p>What is your monthly income?</p>
+            <input type="text" value={income} onChange={(e) => setIncome(e.target.value)} style={inputStyle} />
+            <div style={buttonRowStyle}>
+              <button onClick={back} style={buttonStyle}>Back</button>
+              <button onClick={next} style={buttonStyle}>Next</button>
+            </div>
+          </>
+        );
+      case 5:
+        return (
+          <>
+            <p>Briefly describe your situation or dispute:</p>
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4} style={{ ...inputStyle, width: '70%', borderRadius: '1rem' }} />
+            <div style={buttonRowStyle}>
+              <button onClick={back} style={buttonStyle}>Back</button>
+              <button onClick={next} style={buttonStyle}>Review</button>
+            </div>
+          </>
+        );
+      case 6:
+        return (
+          <>
+            <p><strong>Case Type:</strong> {caseType}</p>
+            {caseType === 'Eviction' && (
+              <>
+                <p><strong>Received Notice:</strong> {receivedNotice ? 'Yes' : 'No'}</p>
+                <p><strong>Date of Notice:</strong> {noticeDate}</p>
+              </>
+            )}
+            <p><strong>Name:</strong> {fullName}</p>
+            <p><strong>Income:</strong> ${income}</p>
+            <p><strong>Reason:</strong> {reason}</p>
+            <div style={buttonRowStyle}>
+              <button onClick={back} style={buttonStyle}>Back</button>
+              <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
+            </div>
+          </>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
     <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ backgroundColor: '#111827', padding: '2rem', borderRadius: '1rem', maxWidth: '500px', color: '#fff', textAlign: 'center' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '2rem' }}>{caseType} Form</h1>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          {Object.entries(stepTitleMap).map(([index, title]) => (
+            <div
+              key={index}
+              title={title}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: Number(index) === step ? '#4f46e5' : '#444',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem',
+                boxShadow: Number(index) === step ? '0 0 8px #6366f1' : undefined,
+              }}
+            >
+              {index}
+            </div>
+          ))}
+        </div>
+
         <AnimatePresence mode="wait">
-          <div aria-live="polite">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             {stepContent()}
-          </div>
+          </motion.div>
         </AnimatePresence>
       </div>
     </div>

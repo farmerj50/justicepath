@@ -2,23 +2,20 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CaseTypeCard from '../components/CaseTypeCard';
 
-const caseOptions = [
-  {
-    label: 'Eviction',
+const caseOptions = {
+  'Eviction': {
     icon: '📄',
-    description: 'For tenants facing eviction or landlords filing notices.',
+    description: 'For tenants facing eviction or landlords filing notices.'
   },
-  {
-    label: 'Small Claims',
+  'Small Claims': {
     icon: '⚖️',
-    description: 'Resolve disputes involving money, property, or damages.',
+    description: 'Resolve disputes involving money, property, or damages.'
   },
-  {
-    label: 'Family Law',
+  'Family Law': {
     icon: '👨‍👩‍👧‍👦',
-    description: 'Divorce, custody, child support, or spousal support.',
-  },
-];
+    description: 'Divorce, custody, child support, or spousal support.'
+  }
+};
 
 const CaseTypeSelection: React.FC = () => {
   const navigate = useNavigate();
@@ -45,16 +42,17 @@ const CaseTypeSelection: React.FC = () => {
       </header>
 
       <section className="card-container">
-        {caseOptions.map(({ label, icon, description }) => (
-          <CaseTypeCard
-            key={label}
-            title={label}
-            icon={icon}
-            description={description}
-            onClick={() => handleSelect(label)}
-            selected={selectedType === label}
-          />
-        ))}
+        {Object.entries(caseOptions).map(([label, { icon, description }]) => (
+  <CaseTypeCard
+    key={label}
+    title={label}
+    icon={icon}
+    description={description}
+    onClick={() => handleSelect(label)}
+    selected={selectedType === label}
+  />
+))}
+
       </section>
 
       <button
