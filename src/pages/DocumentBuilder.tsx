@@ -1,12 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
 import { useParams } from 'react-router-dom';
 import openai from '../utils/openaiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt } from 'react-icons/fa';
+import {
+  isValidFullName,
+  isValidIncome,
+  isValidReason,
+  isValidNoticeDate
+} from '../utils/validation';
+
+
 
 const DocumentBuilder: React.FC = () => {
+  const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
   const STORAGE_KEY = `formData-${caseType}`;
 
@@ -26,6 +36,24 @@ const DocumentBuilder: React.FC = () => {
     const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, [key]: value }));
   };
+  const isStepValid = () => {
+  switch (step) {
+    case 1:
+      return caseType === 'Eviction' ? receivedNotice !== null : true;
+    case 2:
+      return caseType === 'Eviction' ? !!noticeDate : true;
+    case 3:
+      return fullName.trim().length > 2;
+    case 4:
+      return /^\d+(\.\d{1,2})?$/.test(income.trim());
+    case 5:
+      return reason.trim().length > 10;
+    default:
+      return true;
+  }
+};
+
+
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -39,7 +67,14 @@ const DocumentBuilder: React.FC = () => {
     }
   }, [caseType]);
 
-  const next = () => setStep((s) => s + 1);
+  const next = () => {
+  if (isStepValid()) {
+    setStep((s) => s + 1);
+  } else {
+    alert('Please complete the required information before proceeding.');
+  }
+};
+
   const back = () => setStep((s) => s - 1);
 
   const stepTitleMap: Record<number, string> = {
@@ -155,34 +190,48 @@ Also suggest one helpful follow-up question the user might want to ask next.
             )}
           </>
         );
-      case 2:
-        return (
-          <>
-            <label htmlFor="notice-date">What date did you receive the notice?</label>
-            <div style={{ position: 'relative', width: '60%', margin: '0 auto' }}>
-              <DatePicker
-                id="notice-date"
-                selected={noticeDateObject}
-                onChange={(date: Date | null) => {
-                  if (date) {
-                    setNoticeDateObject(date);
-                    const iso = date.toISOString().split('T')[0];
-                    setNoticeDate(iso);
-                    persist('noticeDate', iso);
-                  }
-                }}
-                placeholderText="mm/dd/yyyy"
-                dateFormat="yyyy-MM-dd"
-                className="custom-datepicker-input"
-              />
-              <FaCalendarAlt style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
-            </div>
-            <div style={buttonRowStyle}>
-              <button onClick={back} style={buttonStyle}>Back</button>
-              <button onClick={next} style={buttonStyle}>Next</button>
-            </div>
-          </>
-        );
+     case 2:
+  return (
+    <>
+      <label htmlFor="notice-date">What date did you receive the notice?</label>
+      <div style={{ position: 'relative', width: '60%', margin: '0 auto' }}>
+        <DatePicker
+          id="notice-date"
+          selected={noticeDateObject}
+          onChange={(date: Date | null) => {
+            if (date) {
+              setNoticeDateObject(date);
+              const iso = date.toISOString().split('T')[0];
+              setNoticeDate(iso);
+              persist('noticeDate', iso);
+            }
+          }}
+          placeholderText="mm/dd/yyyy"
+          dateFormat="yyyy-MM-dd"
+          className="custom-datepicker-input"
+          ref={datePickerRef}
+        />
+        <FaCalendarAlt
+          onMouseEnter={() => {
+            datePickerRef.current?.setFocus?.();
+          }}
+          style={{
+            position: 'absolute',
+            right: '16px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#aaa',
+            cursor: 'pointer',
+          }}
+        />
+      </div>
+      <div style={buttonRowStyle}>
+        <button onClick={back} style={buttonStyle}>Back</button>
+        <button onClick={next} style={buttonStyle}>Next</button>
+      </div>
+    </>
+  );
+
       case 3:
         return (
           <>
