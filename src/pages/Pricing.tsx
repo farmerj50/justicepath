@@ -1,3 +1,6 @@
+import React from 'react';
+import Navbar from '../components/Navbar'; // ✅ Make sure this is imported
+
 const planCard = (name: string, desc: string, price: string) => (
   <div style={{
     backgroundColor: '#1f2937',
@@ -11,21 +14,42 @@ const planCard = (name: string, desc: string, price: string) => (
     <h3 style={{ fontSize: '1.5rem' }}>{name}</h3>
     <p style={{ margin: '1rem 0' }}>{desc}</p>
     <strong>{price}</strong>
-    <button style={{ marginTop: '1rem', padding: '0.5rem 1rem', borderRadius: '999px', backgroundColor: '#4f46e5', color: '#fff' }}>
+    <button style={{
+      marginTop: '1rem',
+      padding: '0.5rem 1rem',
+      borderRadius: '999px',
+      backgroundColor: '#4f46e5',
+      color: '#fff'
+    }}>
       Select
     </button>
   </div>
 );
 
 const Pricing = () => (
-  <div style={{ padding: '2rem', textAlign: 'center' }}>
-    <h1>Choose a Plan</h1>
-    <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '2rem' }}>
-      {planCard("Free", "Basic AI document prep", "$0")}
-      {planCard("Plus", "Includes file upload", "$15/mo")}
-      {planCard("Pro", "Live trial prep & voice-to-text", "$49/mo")}
+  <>
+    <Navbar /> {/* ✅ Inserted at the top */}
+    <div style={{
+      backgroundColor: '#000',
+      minHeight: '100vh',
+      padding: '4rem 2rem',
+      color: '#fff',
+      textAlign: 'center'
+    }}>
+      <h1 style={{ fontSize: '2rem' }}>Choose a Plan</h1>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '2rem',
+        marginTop: '2rem',
+        flexWrap: 'wrap'
+      }}>
+        {planCard("Free", "Basic AI document prep", "$0")}
+        {planCard("Plus", "Includes file upload", "$15/mo")}
+        {planCard("Pro", "Live trial prep & voice-to-text", "$49/mo")}
+      </div>
     </div>
-  </div>
+  </>
 );
 
 export default Pricing;
