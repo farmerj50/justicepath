@@ -216,4 +216,31 @@ button:disabled {
     max-width: 280px;
   }
 }
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111827;
+  padding: 1rem 2rem;
+  width: 100%;
+}
+
+.nav-links a {
+  margin-left: 1.5rem;
+  color: #eee;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.brand {
+  color: white;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+.container {
+  padding-top: 4rem;
+  text-align: center;
+}
+
+
 

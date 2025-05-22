@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt } from 'react-icons/fa';
+import Navbar from '../components/Navbar';
+
 import {
   isValidFullName,
   isValidIncome,
@@ -148,19 +150,73 @@ const DocumentBuilder: React.FC = () => {
     6: 'Review & Submit'
   };
 
-  const generatePrompt = (includeFollowUp = false) => `
-You are a legal assistant. A user has filled out the following case info:
+  const generatePrompt = (includeFollowUp = false) => {
+  let contextDetails = '';
+  let caseSpecifics = '';
 
-Case Type: ${caseType}
-Name: ${fullName}
-Monthly Income: ${income}
-${caseType === 'Eviction' ? `Received Notice: ${receivedNotice ? 'Yes' : 'No'}\nNotice Date: ${noticeDate}` : ''}
-Reason: ${reason}
-${includeFollowUp ? `\nFollow-up question: ${followUp}` : ''}
+  switch (caseType) {
+    case 'Eviction':
+      caseSpecifics = `
+- Received Eviction Notice: ${receivedNotice ? 'Yes' : 'No'}
+- Date of Notice: ${noticeDate}
+      `.trim();
+      contextDetails = `
+You are a legal assistant helping a user in Georgia with a housing eviction issue.
+Provide steps that comply with Georgia landlord-tenant laws and eviction procedure.
+Include key deadlines, forms, defenses, and organizations that can help.
+Mention Georgia-specific statutes (like OCGA § 44-7) where applicable.
+      `.trim();
+      break;
 
-Please give practical next steps this person can take, and recommendations. Be detailed but avoid recommending legal counsel as the only step.
-Also suggest one helpful follow-up question the user might want to ask next.
-`;
+    case 'Small Claims':
+      contextDetails = `
+You are a legal assistant helping a user in Georgia with a small claims issue.
+Outline the exact steps for filing a small claims lawsuit, including monetary limits, timelines, and Georgia-specific procedures.
+Mention specific statutes (such as OCGA Title 15 or 9), and name at least one legal aid organization or consumer office that helps in small claims.
+      `.trim();
+      break;
+
+    case 'PII Misuse':
+      contextDetails = `
+You are a legal assistant helping a user in Georgia whose personal information (PII) has been used without their consent.
+Give guidance under Georgia privacy laws and federal law if relevant (like the FTC or Georgia Fair Business Practices Act).
+Mention official bodies like the Georgia Department of Law or the FTC.
+      `.trim();
+      break;
+
+    default:
+      contextDetails = `
+You are a legal assistant helping a user in Georgia with a legal issue of type: ${caseType}.
+Give detailed, actionable steps under Georgia law. Where possible, cite relevant Georgia statutes, forms, organizations, and local court procedures.
+      `.trim();
+      break;
+  }
+
+  return `
+${contextDetails}
+
+User Details:
+- Case Type: ${caseType}
+- Full Name: ${fullName}
+- Monthly Income: ${income}
+${caseSpecifics ? caseSpecifics : ''}
+- Case Reason / Situation: ${reason}
+
+Please include:
+1. Specific legal steps the user can take in Georgia.
+2. At least one **Georgia law or court rule** that applies.
+3. One or more **Georgia-based organizations or hotlines** they can contact for help.
+4. Step-by-step breakdown of any court process involved.
+5. General recommendations to improve their legal standing.
+
+${includeFollowUp ? `Also answer this follow-up: "${followUp}"` : ''}
+
+**Do not suggest simply contacting an attorney.** Provide practical, direct help.
+
+End with a helpful follow-up question they might ask next.
+  `.trim();
+};
+
 
   const formatResponse = (text: string) =>
     text.replace(/(\d+)\.\s*/g, (_, n) => `\n\n${n}. `).trim();
@@ -405,6 +461,8 @@ const stepContent = () => {
 
 
   return (
+  <>
+    <Navbar />
     <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ backgroundColor: '#111827', padding: '2rem', borderRadius: '1rem', maxWidth: '500px', color: '#fff', textAlign: 'center' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '2rem' }}>{caseType} Form</h1>
@@ -441,13 +499,13 @@ const stepContent = () => {
             transition={{ duration: 0.5 }}
           >
             {stepContent()}
-            {/* Your stepContent() function goes here */}
-            {/* Call and render actual content per step */}
           </motion.div>
         </AnimatePresence>
       </div>
     </div>
-  );
+  </>
+);
+
 };
 
 export default DocumentBuilder;
