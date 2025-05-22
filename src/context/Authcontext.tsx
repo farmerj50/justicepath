@@ -1,39 +1,44 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Define shape of user (adjust based on your actual user data)
 interface User {
   id: string;
   email: string;
-  fullName?: string;
+  fullName: string;
+  tier: 'free' | 'plus' | 'pro';
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (user: User) => void;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    // Optional: load user from localStorage
-    const stored = localStorage.getItem('authUser');
-    if (stored) {
-      setUser(JSON.parse(stored));
+    const storedUser = localStorage.getItem('justicepath-user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
   }, []);
 
-  const login = (user: User) => {
-    setUser(user);
-    localStorage.setItem('authUser', JSON.stringify(user));
+  const login = async (email: string, password: string) => {
+    const mockUser: User = {
+      id: '1',
+      email,
+      fullName: 'Test User',
+      tier: 'free' // or 'plus', 'pro' for testing
+    };
+    localStorage.setItem('justicepath-user', JSON.stringify(mockUser));
+    setUser(mockUser);
   };
 
   const logout = () => {
+    localStorage.removeItem('justicepath-user');
     setUser(null);
-    localStorage.removeItem('authUser');
   };
 
   return (
@@ -43,10 +48,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
