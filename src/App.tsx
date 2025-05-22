@@ -6,12 +6,21 @@ import DocumentBuilder from './pages/DocumentBuilder';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Pricing from './pages/Pricing';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
   return (
     <>
       <Routes>
         <Route path="/" element={<CaseTypeSelection />} />
+        <Route
+    path="/document-builder/:caseType"
+    element={
+      <ProtectedRoute>
+        <DocumentBuilder />
+      </ProtectedRoute>
+    }
+  />
         <Route path="/document-builder/:caseType" element={<DocumentBuilder />} />
         <Route path="/document-builder" element={<p>Please select a case type from the homepage.</p>} />
         <Route path="/login" element={<Login />} />
