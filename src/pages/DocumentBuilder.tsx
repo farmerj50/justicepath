@@ -6,6 +6,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/Authcontext';
 
 import {
   isValidFullName,
