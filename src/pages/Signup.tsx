@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Navbar from '../components/Navbar';
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -47,6 +48,8 @@ const Signup: React.FC = () => {
   };
 
   return (
+  <>
+    <Navbar />
     <div style={{
       backgroundColor: '#000',
       minHeight: '100vh',
@@ -107,7 +110,9 @@ const Signup: React.FC = () => {
         </p>
       </form>
     </div>
-  );
+  </>
+);
+
 };
 
 const inputStyle: React.CSSProperties = {
