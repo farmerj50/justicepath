@@ -26,11 +26,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
+    // 🔐 Simulate API logic — customize as needed later
     const mockUser: User = {
       id: '1',
       email,
       fullName: 'Test User',
-      tier: 'free' // or 'plus', 'pro' for testing
+      tier: 'free', // Change to 'plus' or 'pro' to test gated routes
     };
     localStorage.setItem('justicepath-user', JSON.stringify(mockUser));
     setUser(mockUser);
@@ -53,3 +54,4 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+
