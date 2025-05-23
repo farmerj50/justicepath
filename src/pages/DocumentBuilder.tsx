@@ -6,7 +6,8 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
-import { useAuth } from '../context/Temp';
+import { useAuth } from '../context/AuthContext';
+
 
 import {
   isValidFullName,
@@ -18,6 +19,16 @@ import {
 const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
+  const { user } = useAuth();
+
+useEffect(() => {
+  if (!user) {
+    window.location.href = '/login';
+  }
+}, [user]);
+
+if (!user) return null;
+
   const STORAGE_KEY = `formData-${caseType}`;
 
   const [step, setStep] = useState(1);
@@ -231,6 +242,7 @@ End with a helpful follow-up question they might ask next.
       });
       const content = response.choices[0].message.content || '';
       const [main, suggestion] = content.split(/Suggested follow-up:/i);
+
       setAiResponse(main.trim());
       setAiSuggestedFollowUp(suggestion?.trim() || '');
       setFollowUpHistory([formatResponse(main.trim())]);

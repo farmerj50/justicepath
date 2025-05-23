@@ -6,7 +6,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Pricing from './pages/Pricing';
 import PremiumUpload from './pages/PremiumUpload'; // ✅ import the premium upload page
-import ProtectedRoute from './components/RoleProtectedRouteProps';
+import ProtectedRoute from './components/ProtectedRoute';
 
 
 const App: React.FC = () => {
