@@ -24,6 +24,8 @@ const DocumentBuilder: React.FC = () => {
 useEffect(() => {
   if (!user) {
     window.location.href = '/login';
+  } else if (!user.plan) {
+    window.location.href = '/select-plan';
   }
 }, [user]);
 

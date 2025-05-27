@@ -7,6 +7,8 @@ import Signup from './pages/Signup';
 import Pricing from './pages/Pricing';
 import PremiumUpload from './pages/PremiumUpload'; // ✅ import the premium upload page
 import ProtectedRoute from './components/ProtectedRoute';
+import SelectPlan from './pages/SelectPlan';
+
 
 
 const App: React.FC = () => {
@@ -15,31 +17,41 @@ const App: React.FC = () => {
       <Navbar />
 
       <Routes>
-        <Route path="/" element={<CaseTypeSelection />} />
+  <Route path="/" element={<CaseTypeSelection />} />
 
-        <Route
-          path="/document-builder/:caseType"
-          element={
-            <ProtectedRoute>
-              <DocumentBuilder />
-            </ProtectedRoute>
-          }
-        />
+  <Route
+    path="/document-builder/:caseType"
+    element={
+      <ProtectedRoute>
+        <DocumentBuilder />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/upload"
-          element={
-            <ProtectedRoute allowedTiers={['free', 'plus', 'pro']}>
-              <PremiumUpload />
-            </ProtectedRoute>
-          }
-        />
+  <Route
+    path="/upload"
+    element={
+      <ProtectedRoute allowedTiers={['free', 'plus', 'pro']}>
+        <PremiumUpload />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route path="/document-builder" element={<p>Please select a case type from the homepage.</p>} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/pricing" element={<Pricing />} />
-      </Routes>
+  <Route
+    path="/select-plan"
+    element={
+      <ProtectedRoute>
+        <SelectPlan />
+      </ProtectedRoute>
+    }
+  />
+
+  <Route path="/document-builder" element={<p>Please select a case type from the homepage.</p>} />
+  <Route path="/login" element={<Login />} />
+  <Route path="/signup" element={<Signup />} />
+  <Route path="/pricing" element={<Pricing />} />
+</Routes>
+
     </>
   );
 };

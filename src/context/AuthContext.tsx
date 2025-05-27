@@ -4,7 +4,8 @@ interface User {
   id: string;
   email: string;
   fullName: string;
-  tier: 'free' | 'plus' | 'pro';
+  plan: 'free' | 'basic' | 'pro';
+  tier?: string; // optional depending on your schema
 }
 
 interface AuthContextType {
@@ -16,7 +17,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Utility sleep function
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,20 +32,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const storedUser = localStorage.getItem('justicepath-user');
           if (storedUser) {
             const parsed = JSON.parse(storedUser);
-            if (isMounted) {
+            if (parsed.id && parsed.email && isMounted) {
               setUser(parsed);
-              console.log(`✅ User loaded on attempt ${i + 1}:`, parsed);
+              console.log(`✅ Loaded user from localStorage (attempt ${i + 1})`);
               break;
             }
-          } else {
-            console.warn(`⏳ Attempt ${i + 1}: No user found`);
           }
         } catch (err) {
-          console.error(`❌ Attempt ${i + 1} failed`, err);
+          console.error(`❌ Hydration failed on attempt ${i + 1}`, err);
         }
-        await delay(200); // wait before next attempt
+        await delay(200);
       }
-
       if (isMounted) setLoading(false);
     };
 
@@ -57,19 +54,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const mockUser: User = {
-      id: '1',
-      email,
-      fullName: 'Test User',
-      tier: 'plus', // ⬅️ update to test access control
-    };
-    localStorage.setItem('justicepath-user', JSON.stringify(mockUser));
-    setUser(mockUser);
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Invalid credentials');
+      }
+
+      const data = await res.json();
+      const userFromDb = data.user;
+
+      if (!userFromDb || !userFromDb.id) {
+        throw new Error('User data incomplete');
+      }
+
+      localStorage.setItem('justicepath-user', JSON.stringify(userFromDb));
+      setUser(userFromDb);
+      console.log('✅ Logged in and stored user:', userFromDb);
+    } catch (err) {
+      console.error('❌ Login failed:', err);
+      throw err;
+    }
   };
 
   const logout = () => {
     localStorage.removeItem('justicepath-user');
     setUser(null);
+    console.log('👋 Logged out');
   };
 
   return (

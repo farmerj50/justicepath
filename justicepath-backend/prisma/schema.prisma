@@ -12,6 +12,7 @@ model User {
   email     String   @unique
   fullName  String
   password  String
+  plan      String?
   tier      Tier     @default(FREE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

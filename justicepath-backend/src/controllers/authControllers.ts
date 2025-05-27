@@ -20,7 +20,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     });
 
     const token = generateToken(user.id);
-    res.status(201).json({ user, token });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        plan: user.plan,
+        tier: user.tier,
+      },
+      token,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
@@ -36,7 +45,16 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = generateToken(user.id);
-    res.json({ user, token });
+    res.status(200).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        plan: user.plan,
+        tier: user.tier,
+      },
+      token,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
@@ -49,7 +67,13 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       res.status(404).json({ message: 'User not found' });
       return;
     }
-    res.json(user);
+    res.json({
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      plan: user.plan,
+      tier: user.tier,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err });
   }
