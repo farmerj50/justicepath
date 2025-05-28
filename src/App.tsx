@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import CaseTypeSelection from './pages/CaseTypeSelection';
 import DocumentBuilder from './pages/DocumentBuilder';
@@ -19,7 +19,8 @@ const App: React.FC = () => {
       <Navbar />
 
       <Routes>
-  <Route path="/" element={<CaseTypeSelection />} />
+         <Route path="/" element={<Navigate to="/case-type-selection" replace />} />
+         <Route path="/case-type-selection" element={<CaseTypeSelection />} />
 
   <Route
     path="/document-builder/:caseType"

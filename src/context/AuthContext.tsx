@@ -1,18 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export type User = {
   id: string;
   email: string;
   fullName: string;
-  plan: 'free' | 'basic' | 'pro' | 'plus';
+  plan: 'free' | 'basic' | 'pro';
   tier?: 'FREE' | 'PLUS' | 'PRO';
 };
 
 export interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
@@ -24,7 +24,6 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
@@ -56,33 +55,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
+  try {
+    const res = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) throw new Error('Invalid credentials');
+
+    const data = await res.json();
+    const userFromDb = data.user;
+
+    if (!userFromDb || !userFromDb.id) throw new Error('User data incomplete');
+
+    localStorage.setItem('justicepath-user', JSON.stringify(userFromDb));
+    setUser(userFromDb);
+    console.log('✅ Logged in and stored user:', userFromDb);
+
+    return userFromDb; // ✅ This is the missing return
+  } catch (err) {
+    console.error('❌ Login failed:', err);
+    throw err;
+  }
+};
+
+
+  const register = async (email: string, password: string, fullName: string) => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const res = await fetch('http://localhost:5000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, fullName }),
       });
 
-      if (!res.ok) throw new Error('Invalid credentials');
+      if (!res.ok) throw new Error('Registration failed');
 
       const data = await res.json();
-      const userFromDb = data.user;
+      const newUser = data.user;
 
-      if (!userFromDb || !userFromDb.id) throw new Error('User data incomplete');
+      if (!newUser || !newUser.id) throw new Error('Incomplete user returned');
 
-      localStorage.setItem('justicepath-user', JSON.stringify(userFromDb));
-      setUser(userFromDb);
-      console.log('✅ Logged in and stored user:', userFromDb);
-
-      // Navigate to plan selection or case type selection depending on plan
-      if (!userFromDb.plan || userFromDb.plan === 'free') {
-        navigate('/select-plan');
-      } else {
-        navigate('/case-type-selection');
-      }
+      localStorage.setItem('justicepath-user', JSON.stringify(newUser));
+      setUser(newUser);
+      console.log('✅ Registered and logged in user:', newUser);
     } catch (err) {
-      console.error('❌ Login failed:', err);
+      console.error('❌ Registration error:', err);
       throw err;
     }
   };
@@ -91,11 +110,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('justicepath-user');
     setUser(null);
     console.log('👋 Logged out');
-    navigate('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
