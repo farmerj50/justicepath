@@ -1,3 +1,4 @@
+// ✅ Login.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
@@ -8,47 +9,39 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-  const savedUserRaw = localStorage.getItem('justicepath-user');
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-  if (!savedUserRaw) {
-    setError('No user found. Please sign up first.');
-    return;
-  }
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.message || 'Invalid credentials');
+        return;
+      }
 
-  try {
-    const savedUser = JSON.parse(savedUserRaw);
+      const { user, token } = await res.json();
 
-    if (!savedUser?.email || !savedUser?.password) {
-      setError('Corrupted user data. Please sign up again.');
-      return;
+      localStorage.setItem('justicepath-auth', token);
+      localStorage.setItem('justicepath-user', JSON.stringify(user));
+
+      if (!user.plan) {
+        navigate('/select-plan');
+      } else {
+        navigate('/case-type-selection');
+      }
+
+    } catch (err) {
+      console.error('Login request failed:', err);
+      setError('Something went wrong. Please try again.');
     }
-
-    if (email !== savedUser.email || password !== savedUser.password) {
-      setError('Invalid email or password.');
-      return;
-    }
-
-    // ✅ Successful login
-    localStorage.setItem('justicepath-auth', 'true');
-    localStorage.setItem('justicepath-user', JSON.stringify(savedUser));
-
-    // Route based on whether a plan is already set
-    if (!savedUser.plan) {
-      navigate('/select-plan');
-    } else {
-      navigate('/dashboard');
-    }
-
-  } catch (err) {
-    console.error('Login parse error:', err);
-    setError('Something went wrong. Please try again.');
-  }
-};
-
+  };
 
   return (
     <>

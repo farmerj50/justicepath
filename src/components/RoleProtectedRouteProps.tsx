@@ -9,14 +9,17 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedTiers }) => {
-  const { user } = useAuth();
+  const auth = useAuth();
+  if (!auth || auth.loading) return <p>Loading auth...</p>;
+  const { user } = auth;
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
   // ✅ Tier check logic
-  if (allowedTiers && !allowedTiers.includes(user.tier)) {
+  if (allowedTiers && (!user.tier || !allowedTiers.includes(user.tier))) {
+
     return <Navigate to="/pricing" replace />;
   }
 

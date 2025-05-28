@@ -8,6 +8,8 @@ import Pricing from './pages/Pricing';
 import PremiumUpload from './pages/PremiumUpload'; // ✅ import the premium upload page
 import ProtectedRoute from './components/ProtectedRoute';
 import SelectPlan from './pages/SelectPlan';
+import PlanDetails from './pages/PlanDetails';
+
 
 
 
@@ -50,6 +52,8 @@ const App: React.FC = () => {
   <Route path="/login" element={<Login />} />
   <Route path="/signup" element={<Signup />} />
   <Route path="/pricing" element={<Pricing />} />
+  <Route path="/plan-details" element={<PlanDetails />} />
+
 </Routes>
 
     </>

@@ -1,15 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-interface User {
+export type User = {
   id: string;
   email: string;
   fullName: string;
-  plan: 'free' | 'basic' | 'pro';
-  tier?: string; // optional depending on your schema
-}
+  plan: 'free' | 'basic' | 'pro' | 'plus';
+  tier?: 'FREE' | 'PLUS' | 'PRO';
+};
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
+  setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -22,6 +24,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
@@ -61,20 +64,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email, password }),
       });
 
-      if (!res.ok) {
-        throw new Error('Invalid credentials');
-      }
+      if (!res.ok) throw new Error('Invalid credentials');
 
       const data = await res.json();
       const userFromDb = data.user;
 
-      if (!userFromDb || !userFromDb.id) {
-        throw new Error('User data incomplete');
-      }
+      if (!userFromDb || !userFromDb.id) throw new Error('User data incomplete');
 
       localStorage.setItem('justicepath-user', JSON.stringify(userFromDb));
       setUser(userFromDb);
       console.log('✅ Logged in and stored user:', userFromDb);
+
+      // Navigate to plan selection or case type selection depending on plan
+      if (!userFromDb.plan || userFromDb.plan === 'free') {
+        navigate('/select-plan');
+      } else {
+        navigate('/case-type-selection');
+      }
     } catch (err) {
       console.error('❌ Login failed:', err);
       throw err;
@@ -85,10 +91,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('justicepath-user');
     setUser(null);
     console.log('👋 Logged out');
+    navigate('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

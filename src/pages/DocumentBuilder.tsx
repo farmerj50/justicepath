@@ -19,7 +19,10 @@ import {
 const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
-  const { user } = useAuth();
+  const auth = useAuth();
+  if (!auth || auth.loading) return <p>Loading auth...</p>;
+  const { user } = auth;
+
 
 useEffect(() => {
   if (!user) {
