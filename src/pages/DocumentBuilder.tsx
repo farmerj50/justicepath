@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import openai from '../utils/openaiClient';
+import { generateLegalAdvice } from '../utils/agentHelper';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
+
 
 
 import {
@@ -19,10 +21,7 @@ import {
 const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
-  const auth = useAuth();
-  if (!auth || auth.loading) return <p>Loading auth...</p>;
-  const { user } = auth;
-
+  const { user } = useAuth();
 
 useEffect(() => {
   if (!user) {
@@ -239,37 +238,47 @@ End with a helpful follow-up question they might ask next.
     text.replace(/(\d+)\.\s*/g, (_, n) => `\n\n${n}. `).trim();
 
   const submitToAI = async () => {
-    const prompt = generatePrompt();
-    try {
-      const response = await openai.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'gpt-3.5-turbo'
-      });
-      const content = response.choices[0].message.content || '';
-      const [main, suggestion] = content.split(/Suggested follow-up:/i);
+  try {
+    const result = await generateLegalAdvice({
+      caseType: caseType || '',
+      fullName,
+      income,
+      reason,
+      noticeDate,
+      receivedNotice: !!receivedNotice,
+      followUp: ''
+    });
+    setAiResponse(result.main);
+    setAiSuggestedFollowUp(result.suggestion);
+    setFollowUpHistory([formatResponse(result.main)]);
+  } catch (err) {
+    alert('There was an error generating the summary.');
+  }
+};
 
-      setAiResponse(main.trim());
-      setAiSuggestedFollowUp(suggestion?.trim() || '');
-      setFollowUpHistory([formatResponse(main.trim())]);
-    } catch (err) {
-      alert('There was an error generating the summary.');
-    }
-  };
+const askFollowUp = async () => {
+  try {
+    const result = await generateLegalAdvice({
+      caseType: caseType || '',
+      fullName,
+      income,
+      reason,
+      noticeDate,
+      receivedNotice: !!receivedNotice,
+      followUp
+    });
+    setFollowUpHistory((prev) => [
+      ...prev,
+      `User: ${followUp}`,
+      `AI: ${formatResponse(result.main)}`
+    ]);
+    setFollowUp('');
+  } catch (err) {
+    alert('There was an error with your follow-up.');
+  }
+};
 
-  const askFollowUp = async () => {
-    const prompt = generatePrompt(true);
-    try {
-      const response = await openai.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'gpt-3.5-turbo'
-      });
-      const content = response.choices[0].message.content || 'No response.';
-      setFollowUpHistory((prev) => [...prev, `User: ${followUp}`, `AI: ${formatResponse(content)}`]);
-      setFollowUp('');
-    } catch (err) {
-      alert('There was an error with your follow-up.');
-    }
-  };
+
   // 👇 Paste this inside the DocumentBuilder component, just before return (
 const stepContent = () => {
   switch (step) {
