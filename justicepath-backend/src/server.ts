@@ -1,5 +1,7 @@
 // src/server.ts
 import app from './app';
+import '../types/global';
+
 
 const PORT = process.env.PORT || 5000;
 

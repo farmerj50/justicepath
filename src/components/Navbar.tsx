@@ -1,34 +1,66 @@
-// src/components/Navbar.tsx
 import { Link } from 'react-router-dom';
 
 const Navbar = () => {
   return (
-    <nav
-  style={{
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '1rem 2rem',
-    backgroundColor: '#111827',
-    color: '#fff',
-    width: '100%',
-    position: 'fixed',   // <-- Keeps it on top while scrolling
-    top: 0,
-    left: 0,
-    zIndex: 1000
-  }}
->
-  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-    <h2 style={{ fontWeight: 600 }}>⚖️ JusticePath</h2>
-  </div>
-  <div style={{ display: 'flex', gap: '1.5rem' }}>
-    <Link to="/" style={{ color: '#fff' }}>Home</Link>
-    <Link to="/pricing" style={{ color: '#fff' }}>Pricing</Link>
-    <Link to="/login" style={{ color: '#fff' }}>Login</Link>
-    <Link to="/signup" style={{ color: '#fff' }}>Sign Up</Link>
-  </div>
-</nav>
+    <nav className="fixed top-0 left-0 w-full bg-gray-900 text-white px-6 py-4 z-50 shadow-lg flex justify-between items-center">
+      <div className="flex items-center gap-2 text-xl font-bold text-yellow-400">
+        ⚖️ JusticePath
+      </div>
 
+      <div className="flex items-center gap-6">
+        <Link to="/" className="hover:text-yellow-400 transition">Home</Link>
+
+        {/* Dropdown */}
+        <div className="relative group">
+          <button className="hover:text-yellow-400 transition flex items-center gap-1">
+            Start a Case
+            <svg
+              className="w-4 h-4 transform group-hover:rotate-180 transition duration-200"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+
+          <div className="absolute hidden group-hover:block mt-2 bg-gray-800 text-white rounded shadow-lg w-48">
+            <Link
+              to="/case-type-selection"
+              className="block px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+            >
+              All Case Types
+            </Link>
+            <Link
+              to="/document-builder/Eviction"
+              className="block px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+            >
+              Eviction
+            </Link>
+            <Link
+              to="/document-builder/Small Claims"
+              className="block px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+            >
+              Small Claims
+            </Link>
+            <Link
+              to="/document-builder/Family Law"
+              className="block px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+            >
+              Family Law
+            </Link>
+          </div>
+        </div>
+
+        <Link to="/documents" className="hover:text-yellow-400 transition">My Documents</Link>
+        <Link to="/pricing" className="hover:text-yellow-400 transition">Pricing</Link>
+        <Link to="/login" className="hover:text-yellow-400 transition">Login</Link>
+        <Link to="/signup" className="hover:text-yellow-400 transition">Sign Up</Link>
+      </div>
+    </nav>
   );
 };
 
