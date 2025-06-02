@@ -47,6 +47,8 @@ if (!user) return null;
   const [followUp, setFollowUp] = useState('');
   const [followUpHistory, setFollowUpHistory] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<number, string>>({});
+  const [documentType, setDocumentType] = useState('advice');
+
 
   const inputStyle = {
     width: '60%',
@@ -246,7 +248,8 @@ End with a helpful follow-up question they might ask next.
       reason,
       noticeDate,
       receivedNotice: !!receivedNotice,
-      followUp: ''
+      followUp: '',
+      documentType
     });
     setAiResponse(result.main);
     setAiSuggestedFollowUp(result.suggestion);
@@ -265,7 +268,8 @@ const askFollowUp = async () => {
       reason,
       noticeDate,
       receivedNotice: !!receivedNotice,
-      followUp
+      followUp,
+      documentType
     });
     setFollowUpHistory((prev) => [
       ...prev,
@@ -425,6 +429,36 @@ const stepContent = () => {
       <p><strong>Income:</strong> ${income}</p>
       <p><strong>Reason:</strong> {reason}</p>
 
+      {/* 🔽 INSERT DROPDOWN HERE */}
+      <div style={{ marginTop: '1rem' }}>
+        <label htmlFor="docType" style={{ display: 'block', color: '#fff', marginBottom: '0.5rem' }}>
+          Select Document Type:
+        </label>
+        <select
+          id="docType"
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value)}
+          style={{
+            padding: '0.5rem',
+            borderRadius: '8px',
+            border: '1px solid #555',
+            backgroundColor: '#111',
+            color: '#eee',
+            width: '100%',
+          }}
+        >
+          <option value="advice">General Advice</option>
+          <option value="motion">Motion</option>
+          <option value="response">Response</option>
+          <option value="reply">Reply to Motion</option>
+          <option value="precedent">Legal Precedent Summary</option>
+          <option value="contract">Contract Analysis</option>
+          <option value="arbitration">Arbitration Assistance</option>
+          <option value="award">Award Estimation</option>
+        </select>
+      </div>
+      {/* 🔼 END DROPDOWN */}
+
       <div style={buttonRowStyle}>
         <button onClick={back} style={buttonStyle}>Back</button>
         <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
@@ -479,6 +513,7 @@ const stepContent = () => {
       )}
     </>
   );
+
 
     default:
       return null;
