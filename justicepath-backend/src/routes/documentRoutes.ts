@@ -7,7 +7,8 @@ const router = express.Router();
 
 router.get('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const userId = req.user?.id;
+  const userId = req.userId;
+
 
   try {
     const doc = await prisma.document.findUnique({ where: { id } });
@@ -26,7 +27,8 @@ router.get('/:id', authenticate, async (req: Request, res: Response): Promise<vo
   }
 });
 router.post('/', authenticate, async (req: Request, res: Response): Promise<void> => {
-  const userId = req.user?.id;
+  const userId = req.userId;
+
   const { title, type, content, name, court, motionType, caseNumber, claimants, respondents } = req.body;
 
   if (!userId) {
@@ -61,7 +63,8 @@ router.post('/', authenticate, async (req: Request, res: Response): Promise<void
 
 router.put('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const userId = req.user?.id;
+  const userId = req.userId;
+
 
   if (!userId) {
     res.status(401).json({ message: 'Unauthorized' });
