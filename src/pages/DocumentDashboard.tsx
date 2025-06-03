@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import UploadModal from '../components/UploadModal'; // adjust path if needed
+
 
 interface Document {
   id: string;
@@ -13,6 +16,16 @@ const DocumentsDashboard = () => {
   const [filter, setFilter] = useState('All');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewURL, setPreviewURL] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+  if (location.pathname === '/documents') {
+    setShowModal(true);
+  }
+}, [location.pathname]);
+
+
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -39,7 +52,21 @@ const DocumentsDashboard = () => {
   const filteredDocs =
     filter === 'All' ? documents : documents.filter((doc) => doc.type === filter);
 
+    const handleFileUpload = (file: File) => {
+  setPreviewFile(file);
+  setShowModal(false);
+};
+
+
   return (
+  <>
+    {showModal && (
+      <UploadModal
+        onClose={() => setShowModal(false)}
+        onFileUpload={handleFileUpload}
+      />
+    )}
+
     <div className="bg-black text-white min-h-screen w-full flex flex-col">
       {/* Top Toolbar Placeholder */}
       <div className="w-full bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
@@ -76,12 +103,6 @@ const DocumentsDashboard = () => {
             {/* Preview Box */}
             <div className="bg-gray-900 text-gray-300 rounded text-sm border border-gray-700 px-4 py-3">
               <h2 className="text-yellow-400 font-semibold text-base mb-2">📎 Preview</h2>
-              <input
-                type="file"
-                accept=".pdf,.txt"
-                onChange={handleFileChange}
-                className="w-full text-sm mb-2"
-              />
               {previewFile ? (
                 previewFile.type === 'application/pdf' ? (
                   <iframe
@@ -131,7 +152,8 @@ const DocumentsDashboard = () => {
         </div>
       </div>
     </div>
-  );
+  </>
+);
 };
 
 export default DocumentsDashboard;
