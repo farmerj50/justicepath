@@ -11,7 +11,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "typeRoots": ["./src/types", "./node_modules/@types"],
   },
   "include": ["src", "prisma"],
   "exclude": ["node_modules", "dist"]

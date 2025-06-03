@@ -9,6 +9,9 @@ import PremiumUpload from './pages/PremiumUpload'; // ✅ import the premium upl
 import ProtectedRoute from './components/ProtectedRoute';
 import SelectPlan from './pages/SelectPlan';
 import PlanDetails from './pages/PlanDetails';
+import LandingPage from './pages/LandingPage';
+import ViewDocument from './pages/ViewDocument';
+import DocumentsDashboard from './pages/DocumentDashboard';
 
 
 
@@ -19,7 +22,8 @@ const App: React.FC = () => {
       <Navbar />
 
       <Routes>
-         <Route path="/" element={<Navigate to="/case-type-selection" replace />} />
+         <Route path="/" element={<LandingPage />} />
+
          <Route path="/case-type-selection" element={<CaseTypeSelection />} />
 
   <Route
@@ -30,6 +34,14 @@ const App: React.FC = () => {
       </ProtectedRoute>
     }
   />
+  <Route
+  path="/documents"
+  element={
+    <ProtectedRoute>
+      <DocumentsDashboard />
+    </ProtectedRoute>
+  }
+/>
 
   <Route
     path="/upload"
@@ -54,6 +66,7 @@ const App: React.FC = () => {
   <Route path="/signup" element={<Signup />} />
   <Route path="/pricing" element={<Pricing />} />
   <Route path="/plan-details" element={<PlanDetails />} />
+  <Route path="/documents/:id/view" element={<ViewDocument />} />
 
 </Routes>
 
