@@ -5,7 +5,6 @@ import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-
 interface DocumentType {
   id: string;
   title: string;
@@ -100,21 +99,28 @@ const DocumentsDashboard = () => {
 
             <div className="bg-gray-900 text-gray-300 rounded text-sm border border-gray-700 px-4 py-3 flex-1">
               <h2 className="text-yellow-400 font-semibold text-base mb-2">📎 Preview</h2>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 overflow-y-auto">
                 {Array.from({ length: numPages }, (_, index) => (
                   <div
                     key={index}
                     className={`bg-gray-900 border border-gray-700 rounded shadow p-1 w-full aspect-[3/4] cursor-pointer hover:ring-2 hover:ring-yellow-400 transition ${selectedPage === index + 1 ? 'ring-2 ring-yellow-400' : ''}`}
                     onClick={() => setSelectedPage(index + 1)}
                   >
-                    <Document file={previewFile as string} onLoadSuccess={onDocumentLoadSuccess} loading=" " noData=" ">
-                      <Page
-                        pageNumber={index + 1}
-                        width={200}
-                        renderAnnotationLayer={false}
-                        renderTextLayer={false}
-                      />
-                    </Document>
+                    <div className="w-full h-full flex justify-center items-center overflow-hidden">
+                      <Document
+                        file={previewFile as string}
+                        onLoadSuccess={onDocumentLoadSuccess}
+                        loading=""
+                        noData=""
+                      >
+                        <Page
+                          pageNumber={index + 1}
+                          height={230}
+                          renderAnnotationLayer={false}
+                          renderTextLayer={false}
+                        />
+                      </Document>
+                    </div>
                   </div>
                 ))}
                 {numPages === 0 && <p className="text-sm">No document selected.</p>}
@@ -124,12 +130,14 @@ const DocumentsDashboard = () => {
 
           <div className="flex-1 bg-black overflow-auto p-4">
             {previewFile && selectedPage && (
-              <Document file={previewFile as string} onLoadSuccess={onDocumentLoadSuccess} className="text-white">
-                <Page
-                  pageNumber={selectedPage}
-                  width={800}
-                />
-              </Document>
+              <div className="w-full h-full flex justify-center">
+                <Document file={previewFile as string} onLoadSuccess={onDocumentLoadSuccess} className="text-white">
+                  <Page
+                    pageNumber={selectedPage}
+                    width={900}
+                  />
+                </Document>
+              </div>
             )}
 
             {!previewFile && (
