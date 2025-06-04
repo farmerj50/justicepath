@@ -3,9 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import * as pdfjsLib from 'pdfjs-dist';
 import { getAIChatResponse } from '../utils/chatAssistant';
-import PDFPreview from '../components/PDFPreview';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import pdfWorker from 'pdfjs-dist/build/pdf.worker?worker';
+pdfjsLib.GlobalWorkerOptions.workerPort = new pdfWorker();
+
 
 interface Document {
   id: string;
@@ -60,7 +61,7 @@ const DocumentsDashboard = () => {
       const pages: string[] = [];
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.3 });
+        const viewport = page.getViewport({ scale: 0.15 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
@@ -77,22 +78,6 @@ const DocumentsDashboard = () => {
   const handleFileUpload = (file: File) => {
     setPreviewFile(file);
     setShowModal(false);
-  };
-
-  const handleAIChat = async () => {
-    if (!selectedDocType) return;
-    setShowChat(true);
-    setChatHistory([`🤖: What should this ${selectedDocType} document help you accomplish?`]);
-  };
-
-  const handleChatSubmit = async () => {
-    if (!chatInput.trim()) return;
-    setChatHistory((prev) => [...prev, `🧑: ${chatInput}`]);
-    setIsLoading(true);
-    const aiReply = await getAIChatResponse(chatInput);
-    setChatHistory((prev) => [...prev, `🤖: ${aiReply}`]);
-    setChatInput('');
-    setIsLoading(false);
   };
 
   const filteredDocs =
@@ -136,22 +121,29 @@ const DocumentsDashboard = () => {
               + New Document
             </button>
 
-            <div className="bg-gray-900 text-gray-300 rounded text-sm border border-gray-700 px-4 py-3">
-              <h2 className="text-yellow-400 font-semibold text-base mb-2">📎 Preview</h2>
-              {previewFile ? (
-                previewFile.type === 'application/pdf' && previewURL ? (
-                  <iframe
-                    src={previewURL}
-                    title="PDF Preview"
-                    className="w-full h-40 rounded border border-gray-700"
-                  />
-                ) : (
-                  <p className="text-sm mt-2 text-gray-300">📄 {previewFile.name}</p>
-                )
-              ) : (
-                <p className="text-sm">No document selected.</p>
-              )}
-            </div>
+            <div className="bg-gray-900 text-gray-300 rounded text-sm border border-gray-700 px-4 py-3 flex flex-col gap-3 overflow-hidden">
+  <h2 className="text-yellow-400 font-semibold text-base mb-2">📎 Preview</h2>
+  {thumbnailPages.length > 0 ? (
+    <div className="flex flex-col gap-2 w-full">
+      {thumbnailPages.map((src, index) => (
+        <div
+          key={index}
+          className="w-full aspect-[3/4] rounded overflow-hidden border border-gray-700 bg-black"
+        >
+          <img
+            src={src}
+            alt={`Page ${index + 1}`}
+            className="w-full h-full object-cover rounded pointer-events-none"
+            draggable={false}
+          />
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-sm">No document selected.</p>
+  )}
+</div>
+
           </div>
 
           <div className="flex-1 bg-black overflow-auto p-4">
@@ -162,71 +154,6 @@ const DocumentsDashboard = () => {
                 className="w-full"
                 style={{ height: 'calc(100vh - 120px)', border: 'none' }}
               />
-            )}
-
-            {previewFile && (
-              <div className="mt-6">
-                <label className="block text-white mb-2 font-medium">Select Document Type:</label>
-                <select
-                  value={selectedDocType}
-                  onChange={(e) => setSelectedDocType(e.target.value)}
-                  className="w-64 bg-gray-800 text-white border border-gray-600 rounded px-3 py-2"
-                >
-                  <option value="">-- Select --</option>
-                  <option>General Advice</option>
-                  <option>Motion</option>
-                  <option>Response</option>
-                  <option>Reply to Motion</option>
-                  <option>Legal Precedent Summary</option>
-                  <option>Contract Analysis</option>
-                  <option>Arbitration Assistance</option>
-                  <option>Award Estimation</option>
-                </select>
-                <button
-                  onClick={handleAIChat}
-                  className="ml-4 px-4 py-2 rounded bg-yellow-500 text-black font-semibold hover:bg-yellow-600"
-                >
-                  Ask AI
-                </button>
-              </div>
-            )}
-
-            {showChat && (
-              <div className="fixed bottom-6 right-6 w-96 h-96 bg-white text-black rounded-lg shadow-lg flex flex-col">
-                <div className="bg-yellow-500 p-3 flex justify-between items-center font-semibold">
-                  <span>AI Legal Assistant</span>
-                  <button onClick={() => setShowChat(false)}>×</button>
-                </div>
-                <div className="flex-1 p-3 overflow-y-auto text-sm space-y-2">
-                  {chatHistory.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`px-3 py-2 rounded whitespace-pre-wrap break-words max-w-[90%] ${
-                        msg.startsWith('🤖') ? 'bg-gray-200 text-gray-900 self-start' : 'bg-blue-600 text-white self-end'
-                      }`}
-                    >
-                      {msg.replace(/^🤖: |^🧑: /, '')}
-                    </div>
-                  ))}
-                  {isLoading && <p className="text-yellow-600 italic">Typing...</p>}
-                </div>
-                <div className="border-t p-3 flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleChatSubmit()}
-                    placeholder="Ask follow-up..."
-                    className="flex-1 border border-gray-300 rounded px-3 py-2"
-                  />
-                  <button
-                    onClick={handleChatSubmit}
-                    className="bg-yellow-500 px-4 py-2 rounded text-black hover:bg-yellow-600"
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
             )}
 
             {!previewFile && (
