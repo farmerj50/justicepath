@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
-import * as pdfjsLib from 'pdfjs-dist';
-import { getAIChatResponse } from '../utils/chatAssistant';
-
-import pdfWorker from 'pdfjs-dist/build/pdf.worker?worker';
-pdfjsLib.GlobalWorkerOptions.workerPort = new pdfWorker();
+import { Document, Page } from 'react-pdf';
+import { pdfjs } from 'react-pdf';
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 
-interface Document {
+interface DocumentType {
   id: string;
   title: string;
   type: string;
@@ -16,18 +14,12 @@ interface Document {
 }
 
 const DocumentsDashboard = () => {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<DocumentType[]>([]);
   const [filter, setFilter] = useState('All');
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewURL, setPreviewURL] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [selectedPage, setSelectedPage] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [thumbnailPages, setThumbnailPages] = useState<string[]>([]);
-  const [selectedDocType, setSelectedDocType] = useState('');
-  const [chatHistory, setChatHistory] = useState<string[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [showChat, setShowChat] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
   const location = useLocation();
 
   useEffect(() => {
@@ -46,38 +38,23 @@ const DocumentsDashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (previewFile) {
-      const url = URL.createObjectURL(previewFile);
-      setPreviewURL(url);
-      generateThumbnails(url);
-      return () => URL.revokeObjectURL(url);
-    }
+    return () => {
+      if (previewFile && typeof previewFile === 'string') {
+        URL.revokeObjectURL(previewFile);
+      }
+    };
   }, [previewFile]);
 
-  const generateThumbnails = async (url: string) => {
-    try {
-      const loadingTask = pdfjsLib.getDocument(url);
-      const pdf = await loadingTask.promise;
-      const pages: string[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.15 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        await page.render({ canvasContext: context!, viewport }).promise;
-        pages.push(canvas.toDataURL());
-      }
-      setThumbnailPages(pages);
-    } catch (err) {
-      console.error('Failed to generate thumbnails', err);
-    }
+  const handleFileUpload = (file: File) => {
+    const blobUrl = URL.createObjectURL(file);
+    setPreviewFile(blobUrl);
+    setShowModal(false);
+    setSelectedPage(1);
   };
 
-  const handleFileUpload = (file: File) => {
-    setPreviewFile(file);
-    setShowModal(false);
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setSelectedPage(1);
   };
 
   const filteredDocs =
@@ -121,39 +98,38 @@ const DocumentsDashboard = () => {
               + New Document
             </button>
 
-            <div className="bg-gray-900 text-gray-300 rounded text-sm border border-gray-700 px-4 py-3 flex flex-col gap-3 overflow-hidden">
-  <h2 className="text-yellow-400 font-semibold text-base mb-2">📎 Preview</h2>
-  {thumbnailPages.length > 0 ? (
-    <div className="flex flex-col gap-2 w-full">
-      {thumbnailPages.map((src, index) => (
-        <div
-          key={index}
-          className="w-full aspect-[3/4] rounded overflow-hidden border border-gray-700 bg-black"
-        >
-          <img
-            src={src}
-            alt={`Page ${index + 1}`}
-            className="w-full h-full object-cover rounded pointer-events-none"
-            draggable={false}
-          />
-        </div>
-      ))}
-    </div>
-  ) : (
-    <p className="text-sm">No document selected.</p>
-  )}
-</div>
-
+            <div className="bg-gray-900 text-gray-300 rounded text-sm border border-gray-700 px-4 py-3 flex-1">
+              <h2 className="text-yellow-400 font-semibold text-base mb-2">📎 Preview</h2>
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: numPages }, (_, index) => (
+                  <div
+                    key={index}
+                    className={`bg-gray-900 border border-gray-700 rounded shadow p-1 w-full aspect-[3/4] cursor-pointer hover:ring-2 hover:ring-yellow-400 transition ${selectedPage === index + 1 ? 'ring-2 ring-yellow-400' : ''}`}
+                    onClick={() => setSelectedPage(index + 1)}
+                  >
+                    <Document file={previewFile as string} onLoadSuccess={onDocumentLoadSuccess} loading=" " noData=" ">
+                      <Page
+                        pageNumber={index + 1}
+                        width={200}
+                        renderAnnotationLayer={false}
+                        renderTextLayer={false}
+                      />
+                    </Document>
+                  </div>
+                ))}
+                {numPages === 0 && <p className="text-sm">No document selected.</p>}
+              </div>
+            </div>
           </div>
 
           <div className="flex-1 bg-black overflow-auto p-4">
-            {previewFile?.type === 'application/pdf' && previewURL && (
-              <iframe
-                src={previewURL}
-                title="Full Document"
-                className="w-full"
-                style={{ height: 'calc(100vh - 120px)', border: 'none' }}
-              />
+            {previewFile && selectedPage && (
+              <Document file={previewFile as string} onLoadSuccess={onDocumentLoadSuccess} className="text-white">
+                <Page
+                  pageNumber={selectedPage}
+                  width={800}
+                />
+              </Document>
             )}
 
             {!previewFile && (
