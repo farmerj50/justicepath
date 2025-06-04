@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
@@ -20,6 +20,7 @@ const DocumentsDashboard = () => {
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (location.pathname === '/documents') {
@@ -49,6 +50,7 @@ const DocumentsDashboard = () => {
     setPreviewFile(blobUrl);
     setShowModal(false);
     setSelectedPage(1);
+    setTimeout(() => navigate('/documents'), 300);
   };
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -58,6 +60,24 @@ const DocumentsDashboard = () => {
 
   const filteredDocs =
     filter === 'All' ? documents : documents.filter((doc) => doc.type === filter);
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const aiDocType = query.get('doc');
+    if (aiDocType) {
+      console.log(`AI should begin asking questions to build: ${aiDocType}`);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const handleDropdownMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'navigate-to-documents' && event.data.payload) {
+        navigate(`/documents?doc=${encodeURIComponent(event.data.payload)}`);
+      }
+    };
+    window.addEventListener('message', handleDropdownMessage);
+    return () => window.removeEventListener('message', handleDropdownMessage);
+  }, [navigate]);
 
   return (
     <>
