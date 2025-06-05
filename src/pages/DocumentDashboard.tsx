@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
+
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface DocumentType {
@@ -19,8 +20,12 @@ const DocumentsDashboard = () => {
   const [numPages, setNumPages] = useState<number>(0);
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [docTypeParam, setDocTypeParam] = useState<string>('');
   const location = useLocation();
   const navigate = useNavigate();
+  const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
+
 
   useEffect(() => {
     if (location.pathname === '/documents') {
@@ -63,9 +68,10 @@ const DocumentsDashboard = () => {
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
-    const aiDocType = query.get('doc');
-    if (aiDocType) {
-      console.log(`AI should begin asking questions to build: ${aiDocType}`);
+    const docType = query.get('doc');
+    if (docType) {
+      setDocTypeParam(docType);
+      console.log(`AI should begin asking questions to build: ${docType}`);
     }
   }, [location.search]);
 
@@ -78,6 +84,65 @@ const DocumentsDashboard = () => {
     window.addEventListener('message', handleDropdownMessage);
     return () => window.removeEventListener('message', handleDropdownMessage);
   }, [navigate]);
+
+  useEffect(() => {
+  if (fromAI && generatedDocument) {
+    let blob: Blob;
+
+    if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
+      blob = new Blob([generatedDocument], { type: mimeType });
+    } else if (typeof generatedDocument === 'string') {
+      const trimmed = generatedDocument.trim();
+      const isLikelyHTML = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
+
+      if (isLikelyHTML) {
+        console.warn('🚫 Generated document is HTML. Cannot render as PDF.');
+        setAiResponse('⚠️ AI failed to return a valid document. Please try again or select another type.');
+        setShowModal(false);
+        return;
+      }
+
+      // Render as plain text – do not use react-pdf
+      setAiResponse(generatedDocument);
+      setShowModal(false);
+      return;
+    } else {
+      console.warn('Unsupported document format.');
+      return;
+    }
+
+    const blobUrl = URL.createObjectURL(blob);
+    setPreviewFile(blobUrl);
+    setSelectedPage(1);
+    setShowModal(false);
+
+    return () => URL.revokeObjectURL(blobUrl);
+  }
+}, [fromAI, generatedDocument, mimeType]);
+
+
+  useEffect(() => {
+    if (docTypeParam && aiResponse) {
+      window.postMessage(
+        {
+          type: 'navigate-to-documents',
+          payload: docTypeParam,
+        },
+        window.location.origin
+      );
+    }
+  }, [docTypeParam, aiResponse]);
+
+  // Make setAiResponse available for postMessage
+  useEffect(() => {
+    const handleAiGenerated = (event: MessageEvent) => {
+      if (event.data?.type === 'set-ai-response') {
+        setAiResponse(event.data.payload || '');
+      }
+    };
+    window.addEventListener('message', handleAiGenerated);
+    return () => window.removeEventListener('message', handleAiGenerated);
+  }, []);
 
   return (
     <>
@@ -161,36 +226,42 @@ const DocumentsDashboard = () => {
             )}
 
             {!previewFile && (
-              <div className="p-8">
-                {filteredDocs.length === 0 ? (
-                  <p className="text-gray-400">No documents found.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredDocs.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="bg-gray-800 rounded-lg p-5 shadow hover:shadow-xl transition"
-                      >
-                        <h3 className="text-lg font-semibold text-yellow-400">{doc.title}</h3>
-                        <p className="text-sm text-gray-400 mt-1">Type: {doc.type}</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Created: {new Date(doc.createdAt).toLocaleDateString()}
-                        </p>
-                        <div className="mt-4 flex gap-4">
-                          <Link
-                            to={`/documents/${doc.id}`}
-                            className="text-blue-400 hover:underline text-sm"
-                          >
-                            View / Edit
-                          </Link>
-                          <button className="text-red-400 hover:underline text-sm">Delete</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+  <div className="p-8">
+    {aiResponse ? (
+      <div className="bg-gray-800 text-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold mb-4 text-yellow-400">AI Response</h2>
+        <pre className="whitespace-pre-wrap text-sm">{aiResponse}</pre>
+      </div>
+    ) : filteredDocs.length === 0 ? (
+      <p className="text-gray-400">No documents found.</p>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredDocs.map((doc) => (
+          <div
+            key={doc.id}
+            className="bg-gray-800 rounded-lg p-5 shadow hover:shadow-xl transition"
+          >
+            <h3 className="text-lg font-semibold text-yellow-400">{doc.title}</h3>
+            <p className="text-sm text-gray-400 mt-1">Type: {doc.type}</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Created: {new Date(doc.createdAt).toLocaleDateString()}
+            </p>
+            <div className="mt-4 flex gap-4">
+              <Link
+                to={`/documents/${doc.id}`}
+                className="text-blue-400 hover:underline text-sm"
+              >
+                View / Edit
+              </Link>
+              <button className="text-red-400 hover:underline text-sm">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
           </div>
         </div>
       </div>

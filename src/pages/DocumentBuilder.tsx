@@ -8,6 +8,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
 
 
 
@@ -22,6 +24,8 @@ const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
+
 
 useEffect(() => {
   if (!user) {
@@ -251,13 +255,28 @@ End with a helpful follow-up question they might ask next.
       followUp: '',
       documentType
     });
+
     setAiResponse(result.main);
     setAiSuggestedFollowUp(result.suggestion);
     setFollowUpHistory([formatResponse(result.main)]);
+
+  
+
+    navigate('/documents', {
+      state: {
+        fromAI: true,
+        documentType,
+        generatedDocument: result.main,
+        mimeType: 'text/plain' // <-- ADD THIS
+      }
+    });
   } catch (err) {
     alert('There was an error generating the summary.');
   }
 };
+
+
+
 
 const askFollowUp = async () => {
   try {
@@ -415,110 +434,106 @@ const stepContent = () => {
           </div>
         </>
       );
-    case 6:
-  return (
-    <>
-      <p><strong>Case Type:</strong> {caseType}</p>
-      {caseType === 'Eviction' && (
-        <>
-          <p><strong>Received Notice:</strong> {receivedNotice ? 'Yes' : 'No'}</p>
-          <p><strong>Date of Notice:</strong> {noticeDate}</p>
-        </>
-      )}
-      <p><strong>Name:</strong> {fullName}</p>
-      <p><strong>Income:</strong> ${income}</p>
-      <p><strong>Reason:</strong> {reason}</p>
+  case 6:
+        return (
+          <>
+            <p><strong>Case Type:</strong> {caseType}</p>
+            {caseType === 'Eviction' && (
+              <>
+                <p><strong>Received Notice:</strong> {receivedNotice ? 'Yes' : 'No'}</p>
+                <p><strong>Date of Notice:</strong> {noticeDate}</p>
+              </>
+            )}
+            <p><strong>Name:</strong> {fullName}</p>
+            <p><strong>Income:</strong> ${income}</p>
+            <p><strong>Reason:</strong> {reason}</p>
 
-      {/* 🔽 INSERT DROPDOWN HERE */}
-      <div style={{ marginTop: '1rem' }}>
-        <label htmlFor="docType" style={{ display: 'block', color: '#fff', marginBottom: '0.5rem' }}>
-          Select Document Type:
-        </label>
-        <select
-          id="docType"
-          value={documentType}
-          onChange={(e) => setDocumentType(e.target.value)}
-          style={{
-            padding: '0.5rem',
-            borderRadius: '8px',
-            border: '1px solid #555',
-            backgroundColor: '#111',
-            color: '#eee',
-            width: '100%',
-          }}
-        >
-          <option value="advice">General Advice</option>
-          <option value="motion">Motion</option>
-          <option value="response">Response</option>
-          <option value="reply">Reply to Motion</option>
-          <option value="precedent">Legal Precedent Summary</option>
-          <option value="contract">Contract Analysis</option>
-          <option value="arbitration">Arbitration Assistance</option>
-          <option value="award">Award Estimation</option>
-        </select>
-      </div>
-      {/* 🔼 END DROPDOWN */}
+            <div style={{ marginTop: '1rem' }}>
+              <label htmlFor="docType" style={{ display: 'block', color: '#fff', marginBottom: '0.5rem' }}>
+                Select Document Type:
+              </label>
+              <select
+                id="docType"
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: '8px',
+                  border: '1px solid #555',
+                  backgroundColor: '#111',
+                  color: '#eee',
+                  width: '100%',
+                }}
+              >
+                <option value="advice">General Advice</option>
+                <option value="motion">Motion</option>
+                <option value="response">Response</option>
+                <option value="reply">Reply to Motion</option>
+                <option value="precedent">Legal Precedent Summary</option>
+                <option value="contract">Contract Analysis</option>
+                <option value="arbitration">Arbitration Assistance</option>
+                <option value="award">Award Estimation</option>
+              </select>
+            </div>
 
-      <div style={buttonRowStyle}>
-        <button onClick={back} style={buttonStyle}>Back</button>
-        <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
-      </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem' }}>
+              <button onClick={back} style={buttonStyle}>Back</button>
+              <button onClick={submitToAI} style={buttonStyle}>Submit to AI</button>
+            </div>
 
-      {followUpHistory.length > 0 && (
-        <div style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          backgroundColor: '#222',
-          borderRadius: '8px',
-          maxHeight: '300px',
-          overflowY: 'auto',
-          textAlign: 'left'
-        }}>
-          <h3 style={{ color: '#fff' }}>AI Conversation</h3>
-
-          {followUpHistory.map((entry, index) => (
-            <p key={index} style={{
-              marginBottom: '1.5rem',
-              whiteSpace: 'pre-line',
-              color: entry.startsWith('User:') ? '#8ab4f8' : '#ddd',
-              fontWeight: entry.startsWith('User:') ? 'bold' : 'normal'
-            }}>{entry}</p>
-          ))}
-
-          {aiSuggestedFollowUp && (
-            <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>
-              {aiSuggestedFollowUp}
-            </p>
-          )}
-
-          <div style={{ marginTop: '1rem' }}>
-            <input
-              type="text"
-              value={followUp}
-              onChange={(e) => setFollowUp(e.target.value)}
-              placeholder="Ask a follow-up question"
-              style={{
-                width: '70%',
-                padding: '0.75rem',
+            {followUpHistory.length > 0 && (
+              <div style={{
+                marginTop: '2rem',
+                padding: '1rem',
+                backgroundColor: '#222',
                 borderRadius: '8px',
-                border: '1px solid #555',
-                marginRight: '0.5rem',
-                backgroundColor: '#111',
-                color: '#eee',
-              }}
-            />
-            <button onClick={askFollowUp} style={buttonStyle}>Ask</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
+                maxHeight: '300px',
+                overflowY: 'auto',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ color: '#fff' }}>AI Conversation</h3>
 
+                {followUpHistory.map((entry, index) => (
+                  <p key={index} style={{
+                    marginBottom: '1.5rem',
+                    whiteSpace: 'pre-line',
+                    color: entry.startsWith('User:') ? '#8ab4f8' : '#ddd',
+                    fontWeight: entry.startsWith('User:') ? 'bold' : 'normal'
+                  }}>{entry}</p>
+                ))}
 
-    default:
-      return null;
-  }
-};
+                {aiSuggestedFollowUp && (
+                  <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>
+                    {aiSuggestedFollowUp}
+                  </p>
+                )}
+
+                <div style={{ marginTop: '1rem' }}>
+                  <input
+                    type="text"
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                    placeholder="Ask a follow-up question"
+                    style={{
+                      width: '70%',
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid #555',
+                      marginRight: '0.5rem',
+                      backgroundColor: '#111',
+                      color: '#eee',
+                    }}
+                  />
+                  <button onClick={askFollowUp} style={buttonStyle}>Ask</button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
 
 
