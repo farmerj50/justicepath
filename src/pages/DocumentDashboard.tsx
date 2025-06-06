@@ -3,6 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
+import { saveAiGeneratedDocument } from '../../justicepath-backend/src/utils/aiDocumentHelper';
+import { useAuth } from '../context/AuthContext';
+
+
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
@@ -25,6 +29,8 @@ const DocumentsDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
+  const { user } = useAuth();
+
 
 
   useEffect(() => {
@@ -119,6 +125,7 @@ const DocumentsDashboard = () => {
     return () => URL.revokeObjectURL(blobUrl);
   }
 }, [fromAI, generatedDocument, mimeType]);
+
 
 
   useEffect(() => {
