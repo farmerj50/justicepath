@@ -92,41 +92,59 @@ const DocumentsDashboard = () => {
   }, [navigate]);
 
   useEffect(() => {
-  if (fromAI && generatedDocument) {
-    let blob: Blob;
+  const saveAndRender = async () => {
+    if (fromAI && generatedDocument) {
+      let blob: Blob;
 
-    if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
-      blob = new Blob([generatedDocument], { type: mimeType });
-    } else if (typeof generatedDocument === 'string') {
-      const trimmed = generatedDocument.trim();
-      const isLikelyHTML = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
+      if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
+        blob = new Blob([generatedDocument], { type: mimeType });
+      } else if (typeof generatedDocument === 'string') {
+        const trimmed = generatedDocument.trim();
+        const isLikelyHTML = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
 
-      if (isLikelyHTML) {
-        console.warn('🚫 Generated document is HTML. Cannot render as PDF.');
-        setAiResponse('⚠️ AI failed to return a valid document. Please try again or select another type.');
+        if (isLikelyHTML) {
+          console.warn('🚫 Generated document is HTML. Cannot render as PDF.');
+          setAiResponse('⚠️ AI failed to return a valid document. Please try again or select another type.');
+          setShowModal(false);
+          return;
+        }
+
+        // Render as plain text – do not use react-pdf
+        setAiResponse(generatedDocument);
         setShowModal(false);
+
+        // Save AI-generated document to DB
+        if (documentType && user?.id) {
+          try {
+            await saveAiGeneratedDocument({
+              userId: user.id,
+              documentType,
+              content: generatedDocument,
+              source: 'form',
+              status: 'submitted'
+            });
+            console.log('🧠 AI document metadata saved to database');
+          } catch (err) {
+            console.error('❌ Failed to save AI document to DB:', err);
+          }
+        }
+        return;
+      } else {
+        console.warn('Unsupported document format.');
         return;
       }
 
-      // Render as plain text – do not use react-pdf
-      setAiResponse(generatedDocument);
+      const blobUrl = URL.createObjectURL(blob);
+      setPreviewFile(blobUrl);
+      setSelectedPage(1);
       setShowModal(false);
-      return;
-    } else {
-      console.warn('Unsupported document format.');
-      return;
+
+      return () => URL.revokeObjectURL(blobUrl);
     }
+  };
 
-    const blobUrl = URL.createObjectURL(blob);
-    setPreviewFile(blobUrl);
-    setSelectedPage(1);
-    setShowModal(false);
-
-    return () => URL.revokeObjectURL(blobUrl);
-  }
-}, [fromAI, generatedDocument, mimeType]);
-
-
+  saveAndRender();
+}, [fromAI, generatedDocument, mimeType, documentType, user]);
 
   useEffect(() => {
     if (docTypeParam && aiResponse) {

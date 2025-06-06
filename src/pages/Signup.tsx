@@ -54,6 +54,7 @@ const Signup: React.FC = () => {
     // ✅ Store user object (no plan/tier yet)
     localStorage.setItem('justicepath-user', JSON.stringify(data.user));
     localStorage.setItem('justicepath-token', data.token);
+    localStorage.setItem('skip-hydration-check', 'true');
 
     setSuccess('Signup successful! Redirecting...');
     setTimeout(() => navigate('/select-plan'), 1500);

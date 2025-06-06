@@ -26,34 +26,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+  let isMounted = true;
 
-    const tryHydrateUser = async (attempts = 3) => {
-      for (let i = 0; i < attempts; i++) {
-        try {
-          const storedUser = localStorage.getItem('justicepath-user');
-          if (storedUser) {
-            const parsed = JSON.parse(storedUser);
-            if (parsed.id && parsed.email && isMounted) {
-              setUser(parsed);
-              console.log(`✅ Loaded user from localStorage (attempt ${i + 1})`);
-              break;
-            }
-          }
-        } catch (err) {
-          console.error(`❌ Hydration failed on attempt ${i + 1}`, err);
-        }
-        await delay(200);
-      }
-      if (isMounted) setLoading(false);
-    };
+  const tryHydrateUser = async () => {
+  // 🛑 If signup just happened, skip hydration
+  if (localStorage.getItem('skip-hydration-check')) {
+    console.log('🛑 Skipping hydration after signup');
+    localStorage.removeItem('skip-hydration-check');
+    setLoading(false);
+    return;
+  }
 
-    tryHydrateUser();
+  const storedUser = localStorage.getItem('justicepath-user');
+  if (!storedUser) {
+    setLoading(false);
+    return;
+  }
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  try {
+    const parsed = JSON.parse(storedUser);
+
+    if (!parsed?.id) throw new Error('Missing ID in stored user');
+
+    // ✅ Verify user exists in DB
+    const res = await fetch(`http://localhost:5000/api/profile`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${parsed.token ?? ''}`, // if you're using token auth
+      },
+    });
+
+    if (!res.ok) throw new Error('User not found');
+
+    const data = await res.json();
+    if (isMounted) {
+      setUser(data);
+      console.log('✅ Valid user restored from DB:', data);
+    }
+  } catch (err) {
+    console.warn('⚠️ Invalid stored user, clearing:', err);
+    localStorage.removeItem('justicepath-user');
+    if (isMounted) setUser(null);
+  } finally {
+    if (isMounted) setLoading(false);
+  }
+};
+
+
+  tryHydrateUser();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
+
 
   const login = async (email: string, password: string): Promise<User> => {
   try {
@@ -82,29 +109,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 
-  const register = async (email: string, password: string, fullName: string) => {
-    try {
-      const res = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName }),
-      });
+  const register = async (email: string, password:string, fullName: string) => {
+  try {
+    const res = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName }),
+    });
 
-      if (!res.ok) throw new Error('Registration failed');
+    if (!res.ok) throw new Error('Registration failed');
 
-      const data = await res.json();
-      const newUser = data.user;
+    const data = await res.json();
+    const newUser = data.user;
 
-      if (!newUser || !newUser.id) throw new Error('Incomplete user returned');
+    if (!newUser || !newUser.id) throw new Error('Incomplete user returned');
 
-      localStorage.setItem('justicepath-user', JSON.stringify(newUser));
-      setUser(newUser);
-      console.log('✅ Registered and logged in user:', newUser);
-    } catch (err) {
-      console.error('❌ Registration error:', err);
-      throw err;
+    localStorage.setItem('justicepath-user', JSON.stringify(newUser));
+    setUser(newUser);
+
+    console.log('✅ Registered and logged in user:', newUser);
+
+    // ✅ Add this condition
+    if (!newUser.plan) {
+      window.location.href = '/select-plan';
     }
-  };
+  } catch (err) {
+    console.error('❌ Registration error:', err);
+    throw err;
+  }
+};
+
 
   const logout = () => {
     localStorage.removeItem('justicepath-user');

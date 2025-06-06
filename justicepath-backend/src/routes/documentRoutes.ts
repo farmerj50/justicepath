@@ -27,10 +27,28 @@ router.get('/:id', authenticate, async (req: Request, res: Response): Promise<vo
 });
 router.post('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
-  const { title, type, content, name, court, motionType, caseNumber, claimants, respondents } = req.body;
+
+  // ✅ Include fileUrl here
+  const {
+    title,
+    type,
+    fileUrl, // ✅ Required field from Prisma schema
+    content,
+    name,
+    court,
+    motionType,
+    caseNumber,
+    claimants,
+    respondents
+  } = req.body;
 
   if (!userId) {
     res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  if (!fileUrl || !title || !type) {
+    res.status(400).json({ message: 'Missing required fields' });
     return;
   }
 
@@ -40,14 +58,15 @@ router.post('/', authenticate, async (req: Request, res: Response): Promise<void
         userId,
         title,
         type,
+        fileUrl, // ✅ Must be included
         content,
         name,
         court,
         motionType,
         caseNumber,
         claimants,
-        respondents,
-      },
+        respondents
+      }
     });
 
     res.status(201).json(newDoc);
@@ -58,6 +77,7 @@ router.post('/', authenticate, async (req: Request, res: Response): Promise<void
     return;
   }
 });
+
 
 router.put('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
