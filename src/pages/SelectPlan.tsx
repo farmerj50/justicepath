@@ -3,47 +3,58 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { User } from '../context/AuthContext';
 
-
 const SelectPlan: React.FC = () => {
   const auth = useAuth();
+  const navigate = useNavigate();
+
   if (!auth) return null;
   const { user, setUser } = auth;
 
-  
-  const navigate = useNavigate();
-
   const choosePlan = async (plan: string) => {
-    if (!user || !user.id) {
-      console.warn('User not loaded or missing ID');
-      alert('You must be logged in to select a plan');
+    const upperPlan = plan.toUpperCase();
+    const lowerPlan = plan.toLowerCase();
+
+    const isLoggedIn = user && user.id;
+
+    if (!isLoggedIn) {
+      // Defer application — store selected plan for after login
+      localStorage.setItem('pending-plan', upperPlan);
+      alert('Plan saved. Please login to apply it.');
       navigate('/login');
       return;
     }
 
     try {
+      const token = localStorage.getItem('justicepath-token');
+
       const res = await fetch('http://localhost:5000/api/set-plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
         body: JSON.stringify({
           userId: user.id,
-          plan: plan.toUpperCase(),
+          plan: upperPlan,
         }),
       });
 
-      if (res.ok) {
-        const updatedUser = {
-          ...user,
-          tier: (plan.toUpperCase() as 'FREE' | 'PLUS' | 'PRO'),
-          plan: plan.toLowerCase(),
-        } as User;
-        localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        navigate('/plan-details');
-      } else {
+      if (!res.ok) {
         const err = await res.json();
         console.error('❌ Failed to update plan:', err);
         alert('Could not update plan. Please try again.');
+        return;
       }
+
+      const updatedUser: User = {
+        ...user,
+        plan: lowerPlan as 'free' | 'basic' | 'pro',
+        tier: upperPlan as 'FREE' | 'PLUS' | 'PRO',
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
+      navigate('/plan-details');
     } catch (err) {
       console.error('❌ Network or server error while updating plan:', err);
       alert('Something went wrong. Please try again later.');

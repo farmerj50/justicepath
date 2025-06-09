@@ -22,10 +22,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedTiers 
     return <Navigate to="/login" replace />;
   }
 
-if (allowedTiers && user?.tier && !allowedTiers.includes(user.tier as 'free' | 'plus' | 'pro')) {
-  console.warn(`🚫 User with tier "${user.tier}" not allowed. Must be: ${allowedTiers.join(', ')}`);
+if (
+  allowedTiers &&
+  user?.plan &&
+  !allowedTiers.includes(user.plan as 'free' | 'plus' | 'pro')
+) {
+  console.warn(
+    `🚫 User with plan "${user.plan}" not allowed. Must be: ${allowedTiers.join(', ')}`
+  );
   return <Navigate to="/select-plan" replace />;
 }
+
 
   return children;
 };

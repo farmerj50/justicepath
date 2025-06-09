@@ -4,7 +4,7 @@ export type User = {
   id: string;
   email: string;
   fullName: string;
-  plan: 'free' | 'basic' | 'pro';
+  plan: 'free' | 'basic' | 'pro' | null;
   tier?: 'FREE' | 'PLUS' | 'PRO';
 };
 
@@ -26,119 +26,120 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  let isMounted = true;
+    let isMounted = true;
 
-  const tryHydrateUser = async () => {
-  // 🛑 If signup just happened, skip hydration
-  if (localStorage.getItem('skip-hydration-check')) {
-    console.log('🛑 Skipping hydration after signup');
-    localStorage.removeItem('skip-hydration-check');
-    setLoading(false);
-    return;
-  }
+    const tryHydrateUser = async () => {
+      if (localStorage.getItem('skip-hydration-check')) {
+        console.log('🛑 Skipping hydration after signup');
+        localStorage.removeItem('skip-hydration-check');
+        setLoading(false);
+        return;
+      }
 
-  const storedUser = localStorage.getItem('justicepath-user');
-  if (!storedUser) {
-    setLoading(false);
-    return;
-  }
+      const storedUser = localStorage.getItem('justicepath-user');
+      if (!storedUser) {
+        setLoading(false);
+        return;
+      }
 
-  try {
-    const parsed = JSON.parse(storedUser);
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (!parsed?.id) throw new Error('Missing ID in stored user');
 
-    if (!parsed?.id) throw new Error('Missing ID in stored user');
+        const res = await fetch('http://localhost:5000/api/profile', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${parsed.token ?? ''}`,
+          },
+        });
 
-    // ✅ Verify user exists in DB
-    const res = await fetch(`http://localhost:5000/api/profile`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${parsed.token ?? ''}`, // if you're using token auth
-      },
-    });
+        if (!res.ok) throw new Error('User not found');
+        const data = await res.json();
 
-    if (!res.ok) throw new Error('User not found');
+        if (!data?.plan && window.location.pathname !== '/select-plan') {
+          console.warn('🛑 No plan detected, redirecting to /select-plan');
+          if (isMounted) setUser(null);
+          window.location.href = '/select-plan';
+          return;
+        }
 
-    const data = await res.json();
-    if (isMounted) {
-      setUser(data);
-      console.log('✅ Valid user restored from DB:', data);
-    }
-  } catch (err) {
-    console.warn('⚠️ Invalid stored user, clearing:', err);
-    localStorage.removeItem('justicepath-user');
-    if (isMounted) setUser(null);
-  } finally {
-    if (isMounted) setLoading(false);
-  }
-};
+        if (isMounted) {
+          setUser(data);
+          console.log('✅ Valid user restored from DB:', data);
+        }
 
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        const stack = err instanceof Error ? err.stack : '';
+        console.warn('⚠️ Invalid stored user, clearing:', message, stack);
+        localStorage.removeItem('justicepath-user');
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-  tryHydrateUser();
+    tryHydrateUser();
 
-  return () => {
-    isMounted = false;
-  };
-}, []);
-
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const login = async (email: string, password: string): Promise<User> => {
-  try {
-    const res = await fetch('http://localhost:5000/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!res.ok) throw new Error('Invalid credentials');
+      if (!res.ok) throw new Error('Invalid credentials');
 
-    const data = await res.json();
-    const userFromDb = data.user;
+      const data = await res.json();
+      const userFromDb = data.user;
 
-    if (!userFromDb || !userFromDb.id) throw new Error('User data incomplete');
+      if (!userFromDb || !userFromDb.id) throw new Error('User data incomplete');
 
-    localStorage.setItem('justicepath-user', JSON.stringify(userFromDb));
-    setUser(userFromDb);
-    console.log('✅ Logged in and stored user:', userFromDb);
+      localStorage.setItem('justicepath-user', JSON.stringify(userFromDb));
+      setUser(userFromDb);
+      console.log('✅ Logged in and stored user:', userFromDb);
 
-    return userFromDb; // ✅ This is the missing return
-  } catch (err) {
-    console.error('❌ Login failed:', err);
-    throw err;
-  }
-};
-
-
-  const register = async (email: string, password:string, fullName: string) => {
-  try {
-    const res = await fetch('http://localhost:5000/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, fullName }),
-    });
-
-    if (!res.ok) throw new Error('Registration failed');
-
-    const data = await res.json();
-    const newUser = data.user;
-
-    if (!newUser || !newUser.id) throw new Error('Incomplete user returned');
-
-    localStorage.setItem('justicepath-user', JSON.stringify(newUser));
-    setUser(newUser);
-
-    console.log('✅ Registered and logged in user:', newUser);
-
-    // ✅ Add this condition
-    if (!newUser.plan) {
-      window.location.href = '/select-plan';
+      return userFromDb;
+    } catch (err) {
+      console.error('❌ Login failed:', err);
+      throw err;
     }
-  } catch (err) {
-    console.error('❌ Registration error:', err);
-    throw err;
-  }
-};
+  };
 
+  const register = async (email: string, password: string, fullName: string) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName }),
+      });
+
+      if (!res.ok) throw new Error('Registration failed');
+
+      const data = await res.json();
+      const newUser = data.user;
+
+      if (!newUser || !newUser.id) throw new Error('Incomplete user returned');
+
+      localStorage.setItem('justicepath-user', JSON.stringify(newUser));
+      localStorage.setItem('skip-hydration-check', 'true');
+      setUser(newUser);
+
+      console.log('✅ Registered and logged in user:', newUser);
+
+      window.location.href = '/select-plan';
+    } catch (err) {
+      console.error('❌ Registration error:', err);
+      throw err;
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem('justicepath-user');

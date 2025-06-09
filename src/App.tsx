@@ -52,14 +52,8 @@ const App: React.FC = () => {
     }
   />
 
-  <Route
-    path="/select-plan"
-    element={
-      <ProtectedRoute>
-        <SelectPlan />
-      </ProtectedRoute>
-    }
-  />
+  <Route path="/select-plan" element={<SelectPlan />} />
+
 
   <Route path="/document-builder" element={<p>Please select a case type from the homepage.</p>} />
   <Route path="/login" element={<Login />} />

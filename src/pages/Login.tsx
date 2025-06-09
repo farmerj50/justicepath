@@ -1,13 +1,14 @@
-// ✅ Login.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { setUser } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,12 +32,62 @@ const Login: React.FC = () => {
       localStorage.setItem('justicepath-auth', token);
       localStorage.setItem('justicepath-user', JSON.stringify(user));
 
+      const pendingPlan = localStorage.getItem('pending-plan');
+
+      if (pendingPlan && user?.id) {
+        try {
+          const planRes = await fetch('http://localhost:5000/api/set-plan', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              userId: user.id,
+              plan: pendingPlan,
+            }),
+          });
+
+          if (planRes.ok) {
+            console.log('✅ Applied pending plan:', pendingPlan);
+            localStorage.removeItem('pending-plan');
+
+            const profileRes = await fetch('http://localhost:5000/api/profile', {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (profileRes.ok) {
+              const updatedUser = await profileRes.json();
+              localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
+              setUser(updatedUser);
+              navigate('/plan-details');
+              return;
+            } else {
+              console.warn('⚠️ Failed to fetch updated user after applying plan.');
+              navigate('/select-plan');
+              return;
+            }
+          } else {
+            console.warn('⚠️ Failed to apply pending plan.');
+            navigate('/select-plan');
+            return;
+          }
+        } catch (applyErr) {
+          console.error('❌ Error applying pending plan:', applyErr);
+          navigate('/select-plan');
+          return;
+        }
+      }
+
       if (!user.plan) {
         navigate('/select-plan');
       } else {
+        setUser(user);
         navigate('/case-type-selection');
       }
-
     } catch (err) {
       console.error('Login request failed:', err);
       setError('Something went wrong. Please try again.');
