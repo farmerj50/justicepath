@@ -357,7 +357,7 @@ useEffect(() => {
     <label className="block text-sm text-yellow-300 mb-1">
       Ask follow-up or add details to improve this response:
     </label>
-    <div className="flex gap-2">
+    <div className="flex gap-2 items-center">
       <input
         type="text"
         value={followUpInput}
@@ -365,6 +365,16 @@ useEffect(() => {
         className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white text-sm"
         placeholder="e.g. Include a reference to OCGA § 44-7-7"
       />
+
+      {/* Upload document trigger button */}
+      <button
+        onClick={() => setShowModal(true)} // Open your UploadModal
+        className="text-white px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded"
+        title="Attach a document"
+      >
+        ➕
+      </button>
+
       <button
         onClick={handleFollowUp}
         className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
