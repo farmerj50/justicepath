@@ -3,8 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
-import { saveAiGeneratedDocument } from '../../justicepath-backend/src/utils/aiDocumentHelper';
 import { useAuth } from '../context/AuthContext';
+import { generateLegalAdvice } from '../utils/agentHelper';
+
 
 
 
@@ -26,10 +27,72 @@ const DocumentsDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [aiResponse, setAiResponse] = useState<string>('');
   const [docTypeParam, setDocTypeParam] = useState<string>('');
+  const [followUp, setFollowUp] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [followUpInput, setFollowUpInput] = useState('');
+
+
   const location = useLocation();
   const navigate = useNavigate();
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
   const { user } = useAuth();
+  const handleFollowUp = async () => {
+  if (!followUpInput.trim()) return;
+
+  try {
+    const res = await fetch('/api/ai/analyze-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: aiResponse + `\n\nUser added: ${followUpInput}`,
+        documentType: documentType || 'document',
+      }),
+    });
+
+    const text = await res.text(); // Read raw response
+
+    if (!res.ok) {
+      console.error('❌ Server returned an error:', res.status, text);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(text); // Try parsing
+      console.log('✅ Follow-up result:', data);
+
+      if (data?.main) {
+        setAiResponse((prev) => prev + '\n\n' + data.main);
+        setFollowUpInput('');
+      } else {
+        console.warn('⚠️ No "main" field in AI response:', data);
+      }
+    } catch (parseErr) {
+      console.error('❌ JSON parsing error:', parseErr);
+      console.warn('⚠️ Raw response text:', text);
+    }
+  } catch (err) {
+    console.error('❌ Network error during follow-up:', err);
+  }
+};
+
+useEffect(() => {
+  const runAgent = async () => {
+    if (!docTypeParam || !user?.fullName || aiResponse) return;
+
+    const result = await generateLegalAdvice({
+      caseType: docTypeParam,
+      fullName: user.fullName,
+      income: '0',
+      reason: 'I need help with this legal issue',
+      documentType: 'document',
+    });
+
+    setAiResponse(result.main);
+    setSuggestion(result.suggestion);
+  };
+
+  runAgent();
+}, [docTypeParam, user, aiResponse]);
 
 
 
@@ -93,55 +156,83 @@ const DocumentsDashboard = () => {
 
   useEffect(() => {
   const saveAndRender = async () => {
-    if (fromAI && generatedDocument) {
-      let blob: Blob;
+  if (fromAI && generatedDocument) {
+    let blob: Blob;
 
-      if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
-        blob = new Blob([generatedDocument], { type: mimeType });
-      } else if (typeof generatedDocument === 'string') {
-        const trimmed = generatedDocument.trim();
-        const isLikelyHTML = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
+    if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
+      blob = new Blob([generatedDocument], { type: mimeType });
+    } else if (typeof generatedDocument === 'string') {
+      const trimmed = generatedDocument.trim();
+      const isLikelyHTML = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
 
-        if (isLikelyHTML) {
-          console.warn('🚫 Generated document is HTML. Cannot render as PDF.');
-          setAiResponse('⚠️ AI failed to return a valid document. Please try again or select another type.');
-          setShowModal(false);
-          return;
-        }
-
-        // Render as plain text – do not use react-pdf
-        setAiResponse(generatedDocument);
+      if (isLikelyHTML) {
+        console.warn('🚫 Generated document is HTML. Cannot render as PDF.');
+        setAiResponse('⚠️ AI failed to return a valid document. Please try again or select another type.');
         setShowModal(false);
-
-        // Save AI-generated document to DB
-        if (documentType && user?.id) {
-          try {
-            await saveAiGeneratedDocument({
-              userId: user.id,
-              documentType,
-              content: generatedDocument,
-              source: 'form',
-              status: 'submitted'
-            });
-            console.log('🧠 AI document metadata saved to database');
-          } catch (err) {
-            console.error('❌ Failed to save AI document to DB:', err);
-          }
-        }
-        return;
-      } else {
-        console.warn('Unsupported document format.');
         return;
       }
 
-      const blobUrl = URL.createObjectURL(blob);
-      setPreviewFile(blobUrl);
-      setSelectedPage(1);
+      // Set the raw AI response to display immediately
+      setAiResponse(generatedDocument);
       setShowModal(false);
 
-      return () => URL.revokeObjectURL(blobUrl);
+      // ✅ NEW: Analyze the document using backend AI agent
+      try {
+        const res = await fetch('/api/ai/analyze-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: generatedDocument, documentType }),
+        });
+
+        const data = await res.json();
+        if (data.main) {
+          setSuggestion(data.main);
+          setFollowUp('What are next steps?');
+        }
+      } catch (error) {
+        console.error('❌ AI backend analysis failed:', error);
+      }
+
+      // Save to DB
+      const documentPayload = {
+        userId: user?.id,
+        documentType,
+        title: `${documentType} Draft`,
+        content: generatedDocument,
+        followUps: suggestion ? [{ question: 'What is next?', answer: suggestion }] : [],
+        aiSuggestion: suggestion,
+        source: 'form',
+        status: 'draft',
+      };
+
+      if (documentType && user?.id) {
+        try {
+          await fetch('/api/save-ai-document', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(documentPayload),
+          });
+          console.log('🧠 AI document metadata saved to database');
+        } catch (err) {
+          console.error('❌ Failed to save AI document to DB:', err);
+        }
+      }
+
+      return;
+    } else {
+      console.warn('Unsupported document format.');
+      return;
     }
-  };
+
+    const blobUrl = URL.createObjectURL(blob);
+    setPreviewFile(blobUrl);
+    setSelectedPage(1);
+    setShowModal(false);
+
+    return () => URL.revokeObjectURL(blobUrl);
+  }
+};
+
 
   saveAndRender();
 }, [fromAI, generatedDocument, mimeType, documentType, user]);
@@ -256,7 +347,36 @@ const DocumentsDashboard = () => {
       <div className="bg-gray-800 text-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4 text-yellow-400">AI Response</h2>
         <pre className="whitespace-pre-wrap text-sm">{aiResponse}</pre>
+        {suggestion && (
+  <div className="mt-4 p-4 bg-gray-700 rounded text-sm text-gray-300 border-t border-gray-600">
+    <strong className="text-yellow-400">💡 Follow-up:</strong> {suggestion}
+  </div>
+)}
+{aiResponse && (
+  <div className="mt-6">
+    <label className="block text-sm text-yellow-300 mb-1">
+      Ask follow-up or add details to improve this response:
+    </label>
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={followUpInput}
+        onChange={(e) => setFollowUpInput(e.target.value)}
+        className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white text-sm"
+        placeholder="e.g. Include a reference to OCGA § 44-7-7"
+      />
+      <button
+        onClick={handleFollowUp}
+        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      >
+        Send
+      </button>
+    </div>
+  </div>
+)}
+
       </div>
+      
     ) : filteredDocs.length === 0 ? (
       <p className="text-gray-400">No documents found.</p>
     ) : (
