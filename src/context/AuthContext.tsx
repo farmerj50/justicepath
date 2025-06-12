@@ -5,6 +5,7 @@ export type User = {
   email: string;
   fullName: string;
   plan: 'free' | 'basic' | 'pro' | null;
+  role?: string;
   tier?: 'FREE' | 'PLUS' | 'PRO';
 };
 

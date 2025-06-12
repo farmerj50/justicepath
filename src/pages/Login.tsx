@@ -63,7 +63,16 @@ const Login: React.FC = () => {
               const updatedUser = await profileRes.json();
               localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
               setUser(updatedUser);
-              navigate('/plan-details');
+
+              // ✅ Conditional redirects based on role
+              if (updatedUser.role === 'ADMIN') {
+                navigate('/admin-dashboard');
+              } else if (!updatedUser.plan) {
+                navigate('/select-plan');
+              } else {
+                navigate('/case-type-selection');
+              }
+
               return;
             } else {
               console.warn('⚠️ Failed to fetch updated user after applying plan.');
@@ -82,12 +91,17 @@ const Login: React.FC = () => {
         }
       }
 
-      if (!user.plan) {
+      // ✅ Fallback if there's no pendingPlan logic
+      setUser(user);
+
+      if (user.role === 'ADMIN') {
+        navigate('/admin-dashboard');
+      } else if (!user.plan) {
         navigate('/select-plan');
       } else {
-        setUser(user);
         navigate('/case-type-selection');
       }
+
     } catch (err) {
       console.error('Login request failed:', err);
       setError('Something went wrong. Please try again.');

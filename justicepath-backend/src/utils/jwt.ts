@@ -2,14 +2,30 @@ import jwt from 'jsonwebtoken';
 
 const SECRET = process.env.JWT_SECRET || 'devsecret';
 
-export const generateToken = (id: string) => jwt.sign({ id }, SECRET, { expiresIn: '7d' });
-export const verifyToken = (token: string) => jwt.verify(token, SECRET) as { id: string };
+// Define the token payload structure
+interface JWTPayload {
+  id: string;
+  role: string;
+}
 
-// Types augmentation for req.userId
+// Generate a JWT with id and role
+export const generateToken = (id: string, role: string): string =>
+  jwt.sign({ id, role }, SECRET, { expiresIn: '7d' });
+
+// Verify a JWT and cast to our JWTPayload shape
+export const verifyToken = (token: string): JWTPayload =>
+  jwt.verify(token, SECRET) as JWTPayload;
+
+// Extend Express types to include req.user
 declare global {
   namespace Express {
+    interface User {
+      id: string;
+      role?: string;
+    }
+
     interface Request {
-      userId?: string;
+      user?: User;
     }
   }
 }

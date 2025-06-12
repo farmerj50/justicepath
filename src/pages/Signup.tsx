@@ -10,6 +10,7 @@ const Signup: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [role, setRole] = useState('USER');
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -41,7 +42,7 @@ const Signup: React.FC = () => {
     const res = await fetch('http://localhost:5000/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, password }),
+      body: JSON.stringify({ fullName, email, password, role }),
     });
 
     const data = await res.json();
@@ -121,6 +122,18 @@ const Signup: React.FC = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             style={inputStyle}
           />
+          <select
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          style={{...inputStyle, padding: '8px'}}
+
+          ><option value="USER">User</option>
+          <option value="ADMIN">Admin</option>
+          <option value="LAWYER">Lawyer</option>
+          <option value="BAIL_BONDS">Bail Bonds</option>
+          <option value="PROCESS_SERVER">Process Server</option>
+          <option value="APARTMENT_MANAGER">Apartment Manager</option>
+          </select>
 
           <button type="submit" style={buttonStyle}>Create Account</button>
           <p style={{ fontSize: '0.85rem', textAlign: 'center', color: '#888' }}>

@@ -12,6 +12,7 @@ import PlanDetails from './pages/PlanDetails';
 import LandingPage from './pages/LandingPage';
 import ViewDocument from './pages/ViewDocument';
 import DocumentsDashboard from './pages/DocumentDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 
 
 
@@ -61,6 +62,8 @@ const App: React.FC = () => {
   <Route path="/pricing" element={<Pricing />} />
   <Route path="/plan-details" element={<PlanDetails />} />
   <Route path="/documents/:id/view" element={<ViewDocument />} />
+  <Route path="/admin-dashboard" element={<AdminDashboard />} />
+
 
 </Routes>
 

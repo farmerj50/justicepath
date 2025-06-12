@@ -12,6 +12,10 @@
   "dependencies": {
     "@react-pdf-viewer/core": "^3.12.0",
     "@react-pdf-viewer/default-layout": "^3.12.0",
+    "@syncfusion/ej2-base": "^29.2.4",
+    "@syncfusion/ej2-react-buttons": "^29.2.5",
+    "@syncfusion/ej2-react-charts": "^29.2.10",
+    "@syncfusion/ej2-react-grids": "^29.2.10",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.12.1",
     "openai": "^4.100.0",

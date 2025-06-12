@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+
 
 const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,9 +66,14 @@ const Navbar = () => {
             </div>
           )}
         </div>
+        
 
         <Link to="/documents" className="hover:text-yellow-400 transition">My Documents</Link>
         <Link to="/pricing" className="hover:text-yellow-400 transition">Pricing</Link>
+
+        {user?.role === 'ADMIN' && (
+       <Link to="/admin-dashboard" className="hover:text-yellow-400 transition">Admin</Link>
+        )}
         <Link to="/login" className="hover:text-yellow-400 transition">Login</Link>
         <Link to="/signup" className="hover:text-yellow-400 transition">Sign Up</Link>
       </div>
