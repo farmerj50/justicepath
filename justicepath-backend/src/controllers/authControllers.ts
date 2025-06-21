@@ -4,11 +4,12 @@ import { hashPassword, comparePassword } from '../utils/hash';
 import { generateToken } from '../utils/jwt';
 import { normalize } from 'path';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
+// ✅ Register a new user
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
   const { email, password, fullName, role } = req.body;
-  // Validate role to prevent malicious injection
+
   const validRoles = ['USER', 'ADMIN', 'LAWYER', 'BAIL_BONDS', 'PROCESS_SERVER', 'APARTMENT_MANAGER'];
   const normalizedRole = validRoles.includes(role) ? role : 'USER';
 
@@ -26,7 +27,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         email,
         password: hashed,
         fullName,
-        role: normalizedRole as Role, // ✅ Assign default role
+        role: normalizedRole as Role,
       },
     });
 
@@ -38,7 +39,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         fullName: true,
         plan: true,
         tier: true,
-        role: true, // ✅ Ensure role is returned
+        role: true,
       },
     });
 
@@ -55,8 +56,10 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// ✅ Login an existing user
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
+
   try {
     const user = await prisma.user.findUnique({
       where: { email },
@@ -64,7 +67,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         id: true,
         email: true,
         fullName: true,
-        password: true, // needed for compare
+        password: true,
         plan: true,
         tier: true,
         role: true,
@@ -94,6 +97,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// ✅ Get logged-in user's profile
 export const getProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
