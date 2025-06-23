@@ -1,52 +1,61 @@
 import React from 'react';
 import Navbar from '../components/Navbar'; // ✅ Make sure this is imported
 
-const planCard = (name: string, desc: string, price: string) => (
-  <div style={{
-    backgroundColor: '#1f2937',
-    borderRadius: '1rem',
-    padding: '1.5rem',
-    width: '250px',
-    color: '#fff',
-    boxShadow: '0 0 10px rgba(0,0,0,0.3)',
-    textAlign: 'center'
-  }}>
-    <h3 style={{ fontSize: '1.5rem' }}>{name}</h3>
-    <p style={{ margin: '1rem 0' }}>{desc}</p>
-    <strong>{price}</strong>
-    <button style={{
-      marginTop: '1rem',
-      padding: '0.5rem 1rem',
-      borderRadius: '999px',
-      backgroundColor: '#4f46e5',
-      color: '#fff'
-    }}>
-      Select
-    </button>
-  </div>
-);
-
 const Pricing = () => (
   <>
     <Navbar /> {/* ✅ Inserted at the top */}
-    <div style={{
-      backgroundColor: '#000',
-      minHeight: '100vh',
-      padding: '4rem 2rem',
-      color: '#fff',
-      textAlign: 'center'
-    }}>
-      <h1 style={{ fontSize: '2rem' }}>Choose a Plan</h1>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '2rem',
-        marginTop: '2rem',
-        flexWrap: 'wrap'
-      }}>
-        {planCard("Free", "Basic AI document prep", "$0")}
-        {planCard("Plus", "Includes file upload", "$15/mo")}
-        {planCard("Pro", "Live trial prep & voice-to-text", "$49/mo")}
+    <div className="bg-black min-h-screen py-16 px-4 text-white text-center">
+      <h1 className="text-3xl font-bold mb-10">Choose Your Plan</h1>
+      <div className="flex flex-wrap justify-center gap-8">
+        {/* Free Plan */}
+        <div className="bg-gray-800 text-white rounded-xl p-6 w-full max-w-xs flex flex-col justify-between min-h-[400px]">
+          <div>
+            <h2 className="text-2xl font-bold text-center mb-2">Free</h2>
+            <p className="text-center text-3xl font-semibold mb-2">$0 <span className="text-sm">/mo</span></p>
+            <ul className="text-left space-y-2 mt-4">
+              <li className="text-green-400">✓ Basic AI document drafting</li>
+              <li className="text-green-400">✓ 1 document per month</li>
+              <li className="text-green-400">✓ Access to limited case types</li>
+              <li className="text-green-400">✓ No file upload</li>
+              <li className="text-green-400">✓ Email-only support</li>
+            </ul>
+          </div>
+          <button className="mt-6 bg-indigo-500 text-white py-2 rounded-full">Select</button>
+        </div>
+
+        {/* Plus Plan */}
+        <div className="bg-gray-800 text-white rounded-xl p-6 w-full max-w-xs flex flex-col justify-between min-h-[400px]">
+          <div>
+            <h2 className="text-2xl font-bold text-center mb-2">Plus</h2>
+            <p className="text-center text-3xl font-semibold mb-2">$15 <span className="text-sm">/mo</span></p>
+            <ul className="text-left space-y-2 mt-4">
+              <li className="text-green-400">✓ Everything in Free</li>
+              <li className="text-green-400">✓ Upload scanned files, images, PDFs</li>
+              <li className="text-green-400">✓ AI analysis of uploads with case matching</li>
+              <li className="text-green-400">✓ Document storage and dashboard access</li>
+              <li className="text-green-400">✓ Faster processing speed</li>
+              <li className="text-green-400">✓ Email + Chat support</li>
+            </ul>
+          </div>
+          <button className="mt-6 bg-indigo-500 text-white py-2 rounded-full">Select</button>
+        </div>
+
+        {/* Pro Plan */}
+        <div className="bg-gray-800 text-white rounded-xl p-6 w-full max-w-xs flex flex-col justify-between min-h-[400px]">
+          <div>
+            <h2 className="text-2xl font-bold text-center mb-2">Pro</h2>
+            <p className="text-center text-3xl font-semibold mb-2">$49 <span className="text-sm">/mo</span></p>
+            <ul className="text-left space-y-2 mt-4">
+              <li className="text-green-400">✓ Everything in Plus</li>
+              <li className="text-green-400">✓ Live trial prep suggestions</li>
+              <li className="text-green-400">✓ Voice-to-text transcription</li>
+              <li className="text-green-400">✓ AI-generated outlines and arguments</li>
+              <li className="text-green-400">✓ Multiple follow-up questions per document</li>
+              <li className="text-green-400">✓ Priority AI access and dedicated support</li>
+            </ul>
+          </div>
+          <button className="mt-6 bg-indigo-500 text-white py-2 rounded-full">Select</button>
+        </div>
       </div>
     </div>
   </>

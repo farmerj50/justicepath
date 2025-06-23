@@ -20,6 +20,13 @@ import {
   isValidNoticeDate
 } from '../utils/validation';
 
+
+const persist = (key: string, value: any) => {
+  localStorage.setItem(`justicepath-${key}`, JSON.stringify(value));
+};
+
+
+
 const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
@@ -52,6 +59,21 @@ if (!user) return null;
   const [followUpHistory, setFollowUpHistory] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [documentType, setDocumentType] = useState('advice');
+  const [loading, setLoading] = useState(false);
+  
+const formatCurrency = (value: string) => {
+  const numericValue = value.replace(/\D/g, ''); // Remove non-digit characters
+  const number = parseFloat(numericValue);
+  if (isNaN(number)) return '';
+  return `$${number.toLocaleString()}`;
+};
+
+const handleIncomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const rawValue = e.target.value.replace(/\D/g, '');
+  setIncome(rawValue);
+  persist('income', rawValue);
+};
+
 
 
   const inputStyle = {
@@ -244,6 +266,7 @@ End with a helpful follow-up question they might ask next.
     text.replace(/(\d+)\.\s*/g, (_, n) => `\n\n${n}. `).trim();
 
   const submitToAI = async () => {
+    setLoading(true);
   try {
     const result = await generateLegalAdvice({
       caseType: caseType || '',
@@ -272,6 +295,8 @@ End with a helpful follow-up question they might ask next.
     });
   } catch (err) {
     alert('There was an error generating the summary.');
+  } finally{
+    setLoading(false);
   }
 };
 
@@ -301,44 +326,88 @@ const askFollowUp = async () => {
   }
 };
 
-
   // 👇 Paste this inside the DocumentBuilder component, just before return (
 const stepContent = () => {
   switch (step) {
     case 1:
       return (
         <>
-          <p>Have you received a notice of eviction?</p>
-          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
-          <div style={buttonRowStyle}>
-            <button
-              onClick={() => {
-                setReceivedNotice(true);
-                persist('receivedNotice', true);
-                next();
-              }}
-              style={buttonStyle}
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => {
-                setReceivedNotice(false);
-                persist('receivedNotice', false);
-                next();
-              }}
-              style={buttonStyle}
-            >
-              No
-            </button>
-          </div>
+          {caseType === 'Eviction' && (
+            <p className="text-black dark:text-white">Have you received a notice of eviction?</p>
+          )}
+          {caseType === 'Small Claims' && (
+            <p className="text-black dark:text-white">What is the issue you're bringing to small claims court?</p>
+          )}
+          {caseType === 'Family Law' && (
+            <p className="text-black dark:text-white">What family law issue are you dealing with? (e.g., divorce, custody)</p>
+          )}
+
+          {errors[step] && (
+            <p className="text-red-400 dark:text-red-300">{errors[step]}</p>
+          )}
+
+          {caseType === 'Eviction' ? (
+            <div className="flex justify-center gap-4 mt-4">
+              <button
+                onClick={() => {
+                  setReceivedNotice(true);
+                  persist('receivedNotice', true);
+                  next();
+                }}
+                className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white dark:bg-yellow-400 dark:hover:bg-yellow-300 dark:text-black transition shadow-md"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setReceivedNotice(false);
+                  persist('receivedNotice', false);
+                  next();
+                }}
+                className="px-6 py-2 rounded-full bg-gray-500 hover:bg-gray-600 text-white dark:bg-gray-300 dark:hover:bg-gray-400 dark:text-black transition shadow-md"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <div>
+              <textarea
+                value={reason}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  persist('reason', e.target.value);
+                }}
+                className="w-full p-3 rounded-xl border border-gray-500 shadow-md text-black dark:text-white bg-white dark:bg-gray-700 focus:outline-none"
+                rows={4}
+                placeholder="Briefly describe your situation"
+              />
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={next}
+                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </>
       );
+
     case 2:
+      const getDateLabel = () => {
+        switch (caseType) {
+          case 'Eviction': return 'Date of Notice:';
+          case 'Small Claims': return 'Date of Incident:';
+          case 'Family Law': return 'Date of Event:';
+          default: return 'Relevant Date:';
+        }
+      };
+
       return (
         <>
-          <p>Date of Notice:</p>
-          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          <p>{getDateLabel()}</p>
+          {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
           <div style={{ position: 'relative', width: '60%', margin: '0 auto' }}>
             <DatePicker
               selected={noticeDateObject}
@@ -374,11 +443,12 @@ const stepContent = () => {
           </div>
         </>
       );
+
     case 3:
       return (
         <>
           <p>Full Name:</p>
-          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
           <input
             type="text"
             value={fullName}
@@ -386,7 +456,7 @@ const stepContent = () => {
               setFullName(e.target.value);
               persist('fullName', e.target.value);
             }}
-            style={inputStyle}
+            className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
           />
           <div style={buttonRowStyle}>
             <button onClick={back} style={buttonStyle}>Back</button>
@@ -394,19 +464,17 @@ const stepContent = () => {
           </div>
         </>
       );
+
     case 4:
       return (
         <>
           <p>Monthly Income:</p>
-          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
           <input
             type="text"
-            value={income}
-            onChange={(e) => {
-              setIncome(e.target.value);
-              persist('income', e.target.value);
-            }}
-            style={inputStyle}
+            value={formatCurrency(income)}
+            onChange={handleIncomeChange}
+            className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
           />
           <div style={buttonRowStyle}>
             <button onClick={back} style={buttonStyle}>Back</button>
@@ -414,11 +482,12 @@ const stepContent = () => {
           </div>
         </>
       );
+
     case 5:
       return (
         <>
           <p>Your Situation:</p>
-          {errors[step] && <p style={{ color: 'salmon' }}>{errors[step]}</p>}
+          {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
           <textarea
             rows={4}
             value={reason}
@@ -426,7 +495,7 @@ const stepContent = () => {
               setReason(e.target.value);
               persist('reason', e.target.value);
             }}
-            style={{ ...inputStyle, width: '100%', borderRadius: '1rem' }}
+            className="w-full p-3 rounded-xl border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none"
           />
           <div style={buttonRowStyle}>
             <button onClick={back} style={buttonStyle}>Back</button>
@@ -544,6 +613,13 @@ const stepContent = () => {
       <div style={{ backgroundColor: '#111827', padding: '2rem', borderRadius: '1rem', maxWidth: '500px', color: '#fff', textAlign: 'center' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '2rem' }}>{caseType} Form</h1>
 
+        {loading && (
+          <div style={{ marginBottom: '1rem' }}>
+            <div className="animate-spin h-6 w-6 rounded-full border-4 border-indigo-500 border-t-transparent mx-auto"></div>
+            <p className="text-indigo-400 mt-2">Generating AI Document...</p>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           {Object.entries(stepTitleMap).map(([index, title]) => (
             <div
@@ -566,6 +642,7 @@ const stepContent = () => {
             </div>
           ))}
         </div>
+        
 
         <AnimatePresence mode="wait">
           <motion.div
