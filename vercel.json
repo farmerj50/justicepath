@@ -1,6 +1,5 @@
 {
-  "buildCommand": "npm run build",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD .",
-  "outputDirectory": "dist",
+  "buildCommand": "cd justicepath-app && npm install && npm run build",
+  "outputDirectory": "justicepath-app/dist",
   "cleanUrls": true
 }
