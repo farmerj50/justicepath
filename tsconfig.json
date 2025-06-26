@@ -17,6 +17,8 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "justicepath-backend/src/utils/aiDocumentHelper.ts"]
+  "include": ["src"],
+  "exclude": ["justicepath-backend", "**/justicepath-backend/**"]
 }
+
 
