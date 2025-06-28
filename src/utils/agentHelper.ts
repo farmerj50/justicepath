@@ -1,4 +1,4 @@
-import openai from './openaiClient';
+import { askOpenAI } from './askOpenAI';
 
 /**
  * Constructs a structured AI legal prompt and fetches a response.
@@ -51,7 +51,7 @@ Depending on the request type, respond accordingly:
 - For award estimation, analyze the case context and predict potential monetary outcomes based on Georgia precedent.
 
 Otherwise, provide general legal guidance and ask a helpful follow-up.
-  `.trim();
+`.trim();
 
   const caseDetails = `
 Case Type: ${caseType}
@@ -63,20 +63,16 @@ Reason: ${reason}
 Request Type: ${documentType}
 ${fileContents ? `Uploaded Document Content:\n${fileContents}` : ''}
 ${followUp ? `Follow-up Question: ${followUp}` : ''}
-  `.trim();
+`.trim();
 
   const prompt = `${context}
 
 User Information:
 ${caseDetails}`;
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const content = response.choices[0].message.content || '';
-  const [main, suggestion] = content.split(/Suggested follow-up:/i);
+  // 🔁 Call askOpenAI and parse response
+  const fullReply = await askOpenAI(prompt);
+  const [main, suggestion] = fullReply.split(/Suggested follow-up:/i);
 
   return {
     main: main.trim(),
