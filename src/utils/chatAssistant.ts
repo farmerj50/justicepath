@@ -1,28 +1,25 @@
 // utils/chatAssistant.ts
-import openai from './openaiClient';
 
 export const getAIChatResponse = async (message: string): Promise<string> => {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a helpful legal assistant helping users understand legal issues and select the appropriate legal path.',
-        },
-        {
-          role: 'user',
-          content: message,
-        },
-      ],
-      temperature: 0.7,
+    const response = await fetch('/api/openai/ask', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ question: message }), // Backend expects 'question'
     });
 
-    const reply = response.choices[0]?.message?.content;
-    return reply || 'I couldn’t generate a response at this time.';
+    const data = await response.json();
+
+    if (!data || typeof data.answer !== 'string') {
+      console.warn('Unexpected OpenAI response format:', data);
+      return 'I couldn’t generate a response at this time.';
+    }
+
+    return data.answer;
   } catch (error) {
-    console.error('OpenAI error:', error);
+    console.error('OpenAI backend error:', error);
     return 'There was an error generating the response.';
   }
 };
