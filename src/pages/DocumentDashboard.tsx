@@ -31,6 +31,7 @@ const DocumentsDashboard = () => {
   const [suggestion, setSuggestion] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
   const API_URL = import.meta.env.VITE_API_URL;
+  console.log("🔥 API URL:", import.meta.env.VITE_API_URL);
 
 
 
