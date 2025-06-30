@@ -30,6 +30,8 @@ const DocumentsDashboard = () => {
   const [followUp, setFollowUp] = useState('');
   const [suggestion, setSuggestion] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
+  const API_URL = import.meta.env.VITE_API_URL;
+
 
 
   const location = useLocation();
@@ -40,7 +42,8 @@ const DocumentsDashboard = () => {
   if (!followUpInput.trim()) return;
 
   try {
-    const res = await fetch('/api/ai/analyze-document', {
+    const res = await fetch(`${API_URL}/api/ai/analyze-document`, {
+
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -104,8 +107,11 @@ useEffect(() => {
 
   useEffect(() => {
     const fetchDocuments = async () => {
-      const res = await fetch('/api/documents');
-      const data = await res.json();
+      if (!user) return;
+   const res = await fetch(`${API_URL}/api/ai/ai-documents/${user.id}`);
+
+   const data = await res.json();
+
       setDocuments(data);
     };
     fetchDocuments();
@@ -172,13 +178,11 @@ useEffect(() => {
         return;
       }
 
-      // Set the raw AI response to display immediately
       setAiResponse(generatedDocument);
       setShowModal(false);
 
-      // ✅ NEW: Analyze the document using backend AI agent
       try {
-        const res = await fetch('/api/ai/analyze-document', {
+        const res = await fetch(`${API_URL}/api/ai/save-ai-document`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: generatedDocument, documentType }),
@@ -193,7 +197,6 @@ useEffect(() => {
         console.error('❌ AI backend analysis failed:', error);
       }
 
-      // Save to DB
       const documentPayload = {
         userId: user?.id,
         documentType,
@@ -207,7 +210,7 @@ useEffect(() => {
 
       if (documentType && user?.id) {
         try {
-          await fetch('/api/save-ai-document', {
+          await fetch(`${API_URL}/api/ai/save-ai-document`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(documentPayload),
@@ -232,6 +235,7 @@ useEffect(() => {
     return () => URL.revokeObjectURL(blobUrl);
   }
 };
+
 
 
   saveAndRender();
