@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiRequest } from '../utils/apiClient';
 
 export type User = {
   id: string;
@@ -19,8 +20,6 @@ export interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -47,16 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed = JSON.parse(storedUser);
         if (!parsed?.id) throw new Error('Missing ID in stored user');
 
-        const res = await fetch('http://localhost:5000/api/profile', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${parsed.token ?? ''}`,
-          },
-        });
-
-        if (!res.ok) throw new Error('User not found');
-        const data = await res.json();
+        const data = await apiRequest<User>('/api/profile');
 
         if (!data?.plan && window.location.pathname !== '/select-plan') {
           console.warn('🛑 No plan detected, redirecting to /select-plan');
@@ -90,16 +80,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<User> => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await apiRequest<{ user: User }>('/api/auth/login', 'POST', {
+        email,
+        password,
       });
-
-      if (!res.ok) throw new Error('Invalid credentials');
-
-      const data = await res.json();
-      const userFromDb = data.user;
+      const userFromDb = res.user;
 
       if (!userFromDb || !userFromDb.id) throw new Error('User data incomplete');
 
@@ -116,16 +101,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, fullName: string) => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName }),
+      const res = await apiRequest<{ user: User }>('/api/auth/register', 'POST', {
+        email,
+        password,
+        fullName,
       });
 
-      if (!res.ok) throw new Error('Registration failed');
-
-      const data = await res.json();
-      const newUser = data.user;
+      const newUser = res.user;
 
       if (!newUser || !newUser.id) throw new Error('Incomplete user returned');
 
