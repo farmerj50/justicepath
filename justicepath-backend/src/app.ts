@@ -9,19 +9,17 @@ import openaiRoutes from './routes/openaiRoutes';
 
 const app = express();
 
-// ✅ Register CORS before any routes
+// ✅ CORS middleware — set this BEFORE any routes
 app.use(cors({
-  origin: [
-    'http://localhost:5173', // local dev
-    'https://justicepath-production.up.railway.app' // production frontend
-  ],
-  credentials: true,
+  origin: 'https://justicepath-production.up.railway.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
 }));
-app.options('*', cors()); // ✅ Preflight support
+app.options('*', cors()); // ✅ Handle preflight requests
 
 app.use(express.json());
 
-// ✅ Now register routes AFTER middleware
+// ✅ Routes go AFTER cors setup
 app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
