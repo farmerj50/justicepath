@@ -11,6 +11,8 @@ const Signup: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [role, setRole] = useState('USER');
+  const API_URL = import.meta.env.VITE_API_URL;
+
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -39,7 +41,7 @@ const Signup: React.FC = () => {
   }
 
   try {
-    const res = await fetch('http://localhost:5000/api/auth/register', {
+    const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName, email, password, role }),

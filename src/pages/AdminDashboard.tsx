@@ -14,6 +14,8 @@ import {
 } from '@syncfusion/ej2-react-charts';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/Card'; // Make sure Card.tsx exists
+import { apiRequest } from '../utils/apiClient';
+
 
 interface UserSummary {
   role: string;
@@ -40,14 +42,8 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
   const fetchDashboardStats = async () => {
     try {
-      const token = localStorage.getItem('justicepath-auth');
-      const res = await fetch('http://localhost:5000/api/admin/dashboard-stats', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      setStats(data); // Assume you're using useState for stats
+      const data = await apiRequest<DashboardStats>('api/admin/dashboard-stats');
+      setStats(data);
     } catch (err) {
       console.error('Dashboard fetch failed:', err);
     }
@@ -60,15 +56,7 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchUserSummary = async () => {
       try {
-        const token = localStorage.getItem('justicepath-auth');
-        const res = await fetch('http://localhost:5000/api/admin/user-summary', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch user summary');
-        const data = await res.json();
+        const data = await apiRequest<UserSummary[]>('/api/admin/user-summary');
         setUserData(data);
       } catch (err) {
         console.error('Admin Dashboard Error:', err);

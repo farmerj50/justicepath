@@ -13,6 +13,8 @@ const SelectPlan: React.FC = () => {
   const choosePlan = async (plan: string) => {
     const upperPlan = plan.toUpperCase();
     const lowerPlan = plan.toLowerCase();
+    const API_URL = import.meta.env.VITE_API_URL;
+
 
     const isLoggedIn = user && user.id;
 
@@ -27,7 +29,7 @@ const SelectPlan: React.FC = () => {
     try {
       const token = localStorage.getItem('justicepath-token');
 
-      const res = await fetch('http://localhost:5000/api/set-plan', {
+      const res = await fetch(`${API_URL}/api/set-plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
