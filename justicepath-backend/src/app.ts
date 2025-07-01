@@ -17,5 +17,9 @@ app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/openai', openaiRoutes); // ✅ REGISTER OPENAI ROUTE HERE
+app.use(cors({
+  origin: ['https://your-frontend-domain.up.railway.app'],
+  credentials: true
+}));
 
 export default app;
