@@ -3,23 +3,28 @@ import cors from 'cors';
 
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
-import aiDocRoutes from './routes/aiDocHelper'; // ✅ Existing
+import aiDocRoutes from './routes/aiDocHelper';
 import adminRoutes from './routes/adminRoutes';
-import openaiRoutes from './routes/openaiRoutes'; // ✅ ADD THIS
+import openaiRoutes from './routes/openaiRoutes';
 
 const app = express();
 
-app.use(cors());
+// ✅ Proper CORS setup — only once
+app.use(cors({
+  origin: [
+    'http://localhost:5173', // for local dev
+    'https://justicepath-production.up.railway.app' // deployed frontend
+  ],
+  credentials: true
+}));
+
 app.use(express.json());
 
+// ✅ Register routes after middleware
 app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/openai', openaiRoutes); // ✅ REGISTER OPENAI ROUTE HERE
-app.use(cors({
-  origin: ['https://your-frontend-domain.up.railway.app'],
-  credentials: true
-}));
+app.use('/api/openai', openaiRoutes);
 
 export default app;
