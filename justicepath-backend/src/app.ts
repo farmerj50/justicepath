@@ -9,21 +9,20 @@ import openaiRoutes from './routes/openaiRoutes';
 
 const app = express();
 
-app.use('/api/auth', authRoutes);
-
-// ✅ Proper CORS setup — only once
+// ✅ Register CORS before any routes
 app.use(cors({
   origin: [
-    'http://localhost:5173', // for local dev
-    'https://justicepath-production.up.railway.app' // deployed frontend
+    'http://localhost:5173', // local dev
+    'https://justicepath-production.up.railway.app' // production frontend
   ],
-  credentials: true
+  credentials: true,
 }));
+app.options('*', cors()); // ✅ Preflight support
 
 app.use(express.json());
 
-// ✅ Register routes after middleware
-
+// ✅ Now register routes AFTER middleware
+app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
 app.use('/api/admin', adminRoutes);
