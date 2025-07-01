@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 
 import authRoutes from './routes/authRoutes';
@@ -9,17 +9,35 @@ import openaiRoutes from './routes/openaiRoutes';
 
 const app = express();
 
-// ✅ CORS middleware — set this BEFORE any routes
+const allowedOrigin = 'https://justicepath-production.up.railway.app';
+
+// ✅ Fix typing error by using express.RequestHandler
+const setCorsHeaders: express.RequestHandler = (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', allowedOrigin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+
+  next();
+};
+
+app.use(setCorsHeaders);
+
+// ✅ Backup CORS middleware (only used if browser expects it)
 app.use(cors({
-  origin: 'https://justicepath-production.up.railway.app',
+  origin: allowedOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
-app.options('*', cors()); // ✅ Handle preflight requests
 
 app.use(express.json());
 
-// ✅ Routes go AFTER cors setup
+// ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
