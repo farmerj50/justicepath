@@ -13,9 +13,11 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const API_URL = import.meta.env.VITE_API_URL;
+
 
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -36,7 +38,8 @@ const Login: React.FC = () => {
 
       if (pendingPlan && user?.id) {
         try {
-          const planRes = await fetch('http://localhost:5000/api/set-plan', {
+          const planRes = await fetch(`${API_URL}/api/set-plan`, {
+
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -52,7 +55,8 @@ const Login: React.FC = () => {
             console.log('✅ Applied pending plan:', pendingPlan);
             localStorage.removeItem('pending-plan');
 
-            const profileRes = await fetch('http://localhost:5000/api/profile', {
+            const profileRes = await fetch(`${API_URL}/api/profile`, {
+
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`,

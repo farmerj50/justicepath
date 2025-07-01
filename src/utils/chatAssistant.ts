@@ -2,7 +2,7 @@
 
 export const getAIChatResponse = async (message: string): Promise<string> => {
   try {
-    const response = await fetch('/api/openai/ask', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/openai/ask`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

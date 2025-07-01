@@ -20,7 +20,8 @@ const DocumentEditor = () => {
   useEffect(() => {
     if (id) {
       // Fetch existing document data by ID
-      fetch(`/api/documents/${id}`)
+      fetch(`${import.meta.env.VITE_API_URL}/api/ai/ai-documents/${id}`)
+
         .then((res) => res.json())
         .then((data) => {
           setTitle(data.title);
