@@ -5,11 +5,12 @@ const ViewDocument = () => {
   const { id } = useParams();
   const [document, setDocument] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     const fetchDocument = async () => {
       try {
-        const res = await fetch(`/api/documents/${id}`);
+        const res = await fetch(`${API_URL}/api/documents/${id}`);
         if (res.status === 403) throw new Error('Unauthorized');
         const data = await res.json();
         setDocument(data);
