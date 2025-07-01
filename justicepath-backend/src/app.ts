@@ -9,6 +9,8 @@ import openaiRoutes from './routes/openaiRoutes';
 
 const app = express();
 
+app.use('/api/auth', authRoutes);
+
 // ✅ Proper CORS setup — only once
 app.use(cors({
   origin: [
@@ -21,7 +23,7 @@ app.use(cors({
 app.use(express.json());
 
 // ✅ Register routes after middleware
-app.use('/api/auth', authRoutes);
+
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
 app.use('/api/admin', adminRoutes);
