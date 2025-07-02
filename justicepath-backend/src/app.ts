@@ -9,10 +9,19 @@ import openaiRoutes from './routes/openaiRoutes';
 const app = express();
 
 // ⚠️ Critical: Apply CORS before parsing, routing, or error handling
-app.use(corsMiddleware);
+
 app.options(/.*/, corsMiddleware); // regex catch-all
 
 app.use(express.json());
+
+app.options('/api/auth/login', (req, res) => {
+  res.header('Access-Control-Allow-Origin', 'https://justicepath-production.up.railway.app');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.status(204).send(); // No content, just acknowledge
+});
+app.use(corsMiddleware);
+
 
 // Routes
 app.use('/api/auth', authRoutes);
