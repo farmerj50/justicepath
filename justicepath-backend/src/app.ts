@@ -1,9 +1,5 @@
-// src/app.ts
 import express from 'express';
-import cors from 'cors';
-import { corsOptions } from './middleware/corsConfig'; // ✅ fix the import
-
-
+import corsMiddleware from './middleware/corsConfig';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import aiDocRoutes from './routes/aiDocHelper';
@@ -12,14 +8,13 @@ import openaiRoutes from './routes/openaiRoutes';
 
 const app = express();
 
-// ✅ CORS middleware — placed before any routes
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+// ⚠️ Critical: Apply CORS before parsing, routing, or error handling
+app.use(corsMiddleware);
+app.options(/(.*)/, corsMiddleware); // regex catch-all
 
 app.use(express.json());
 
-// ✅ Routes
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
