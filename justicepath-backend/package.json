@@ -5,9 +5,8 @@
  "scripts": {
   "test": "echo \"Error: no test specified\" && exit 1",
   "dev": "cross-env NODE_ENV=development prisma generate && ts-node-dev src/server.ts",
-  "build": "prisma generate && tsc",
-  "start": "NODE_ENV=production node dist/server.js",
-  "postinstall": "node -e \"if (process.platform !== 'win32') require('child_process').execSync('chmod +x ./node_modules/.bin/prisma')\""
+  "build": "npx prisma generate && tsc",
+  "start": "NODE_ENV=production node dist/server.js"
 },
   "author": "",
   "license": "ISC",
