@@ -59,6 +59,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
 // ✅ Login an existing user
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
+  console.log('[Login Attempt] Email:', email);
 
   try {
     const user = await prisma.user.findUnique({
