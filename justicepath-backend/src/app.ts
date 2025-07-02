@@ -1,7 +1,6 @@
-// src/app.ts
-
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
@@ -9,37 +8,38 @@ import aiDocRoutes from './routes/aiDocHelper';
 import adminRoutes from './routes/adminRoutes';
 import openaiRoutes from './routes/openaiRoutes';
 
+dotenv.config(); // ✅ Loads .env if running locally
+
 const app = express();
-const allowedOrigin = 'https://justicepath-production.up.railway.app';
 
-// ✅ Manually set headers for CORS, especially for OPTIONS preflight
-const setCorsHeaders = (req: Request, res: Response, next: NextFunction): void => {
-  res.header('Access-Control-Allow-Origin', allowedOrigin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
+// ✅ Define allowed origins for CORS
+const allowedOrigins = [
+  'https://justicepath-production.up.railway.app',
+  'http://localhost:5173', // optional: for local development
+];
 
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
+// ✅ CORS config
+const corsOptions = {
+  origin: (origin: any, callback: any) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-// ✅ Use manual CORS headers before anything else
-app.use(setCorsHeaders);
+// ✅ Middleware: CORS should come first
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight
 
-// ✅ Use Express CORS middleware as a backup
-app.use(cors({
-  origin: allowedOrigin,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true
-}));
-
-// ✅ Parse incoming JSON
+// ✅ JSON parsing
 app.use(express.json());
 
-// ✅ Register routes
+// ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/ai', aiDocRoutes);
