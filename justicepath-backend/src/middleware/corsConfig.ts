@@ -1,20 +1,22 @@
-// src/middleware/corsConfig.ts
+// 📁 src/middleware/corsConfig.ts
 import cors from 'cors';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const whitelist = [
-  'http://localhost:5173', // local dev
-  'https://justicepath-production.up.railway.app', // frontend on Railway
+const allowedOrigins = [
+  process.env.FRONTEND_ORIGIN || 'https://justicepath-production.up.railway.app'
 ];
 
 export const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || whitelist.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 };
+
+export default cors(corsOptions);

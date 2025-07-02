@@ -1,7 +1,8 @@
 // src/app.ts
 import express from 'express';
 import cors from 'cors';
-import { corsOptions } from './middleware/corsConfig';
+import { corsOptions } from './middleware/corsConfig'; // ✅ fix the import
+
 
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
@@ -12,6 +13,7 @@ import openaiRoutes from './routes/openaiRoutes';
 const app = express();
 
 // ✅ CORS middleware — placed before any routes
+
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
