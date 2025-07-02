@@ -10,7 +10,7 @@ const app = express();
 
 // ⚠️ Critical: Apply CORS before parsing, routing, or error handling
 app.use(corsMiddleware);
-app.options(/(.*)/, corsMiddleware); // regex catch-all
+app.options(/.*/, corsMiddleware); // regex catch-all
 
 app.use(express.json());
 
