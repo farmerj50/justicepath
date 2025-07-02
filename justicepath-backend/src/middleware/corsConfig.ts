@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN!,
+  'https://justicepath-production.up.railway.app',
 ];
 
 const corsOptions: CorsOptions = {

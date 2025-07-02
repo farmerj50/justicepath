@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "typeRoots": ["./src/types", "./node_modules/@types"],
+    "types": ["node"] // ✅ <-- Add this line
   },
   "include": ["src", "prisma"],
   "exclude": ["node_modules", "dist"]
