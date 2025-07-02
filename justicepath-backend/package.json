@@ -2,12 +2,13 @@
   "name": "justicepath-backend",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "prisma generate && ts-node-dev src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
-  },
+ "scripts": {
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "dev": "cross-env NODE_ENV=development prisma generate && ts-node-dev src/server.ts",
+  "build": "prisma generate && tsc",
+  "start": "NODE_ENV=production node dist/server.js"
+}
+,
   "author": "",
   "license": "ISC",
   "keywords": [],
