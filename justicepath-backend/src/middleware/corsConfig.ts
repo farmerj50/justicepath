@@ -1,22 +1,24 @@
-// 📁 src/middleware/corsConfig.ts
-import cors from 'cors';
+// src/middleware/corsConfig.ts
+import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN || 'https://justicepath-production.up.railway.app'
+  process.env.FRONTEND_ORIGIN!,
 ];
 
-export const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
+const corsOptions: CorsOptions = {
+  origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+      cb(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      cb(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204
 };
 
 export default cors(corsOptions);
