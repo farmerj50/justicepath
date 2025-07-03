@@ -38,6 +38,13 @@ const Login: React.FC = () => {
 
       if (pendingPlan && user?.id) {
         try {
+          console.log('📤 Sending plan update:', {
+             url: `${API_URL}/api/set-plan`,
+             userId: user.id,
+             plan: pendingPlan,
+             token,
+         });
+
           const planRes = await fetch(`${API_URL}/api/set-plan`, {
 
             method: 'POST',
@@ -54,6 +61,8 @@ const Login: React.FC = () => {
           if (planRes.ok) {
             console.log('✅ Applied pending plan:', pendingPlan);
             localStorage.removeItem('pending-plan');
+
+            await(3000);
 
             const profileRes = await fetch(`${API_URL}/api/profile`, {
 

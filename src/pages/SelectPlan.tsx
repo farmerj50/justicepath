@@ -56,7 +56,7 @@ const SelectPlan: React.FC = () => {
 
       setUser(updatedUser);
       localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
-      navigate('/plan-details');
+      navigate('/login');
     } catch (err) {
       console.error('❌ Network or server error while updating plan:', err);
       alert('Something went wrong. Please try again later.');
