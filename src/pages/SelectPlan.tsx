@@ -14,12 +14,16 @@ const SelectPlan: React.FC = () => {
     const upperPlan = plan.toUpperCase();
     const lowerPlan = plan.toLowerCase();
     const API_URL = import.meta.env.VITE_API_URL;
+    const token = localStorage.getItem('justicepath-token');
 
-
-    const isLoggedIn = user && user.id;
+    const isLoggedIn = !!(user?.id && token);
 
     if (!isLoggedIn) {
-      // Defer application — store selected plan for after login
+      // Clear stale values
+      localStorage.removeItem('justicepath-user');
+      localStorage.removeItem('justicepath-token');
+
+      // Save plan for post-login
       localStorage.setItem('pending-plan', upperPlan);
       alert('Plan saved. Please login to apply it.');
       navigate('/login');
@@ -27,13 +31,11 @@ const SelectPlan: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('justicepath-token');
-
       const res = await fetch(`${API_URL}/api/set-plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           userId: user.id,
@@ -56,7 +58,11 @@ const SelectPlan: React.FC = () => {
 
       setUser(updatedUser);
       localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
-      navigate('/login');
+
+      localStorage.removeItem('pending-plan');
+
+      navigate('/login'); // ✅ New target instead of /plan-details
+
     } catch (err) {
       console.error('❌ Network or server error while updating plan:', err);
       alert('Something went wrong. Please try again later.');

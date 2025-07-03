@@ -9,6 +9,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { setUser } = useAuth();
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +63,7 @@ const Login: React.FC = () => {
             console.log('✅ Applied pending plan:', pendingPlan);
             localStorage.removeItem('pending-plan');
 
-            await(3000);
+            await wait (500);
 
             const profileRes = await fetch(`${API_URL}/api/profile`, {
 
@@ -72,21 +73,27 @@ const Login: React.FC = () => {
               },
             });
 
-            if (profileRes.ok) {
-              const updatedUser = await profileRes.json();
-              localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
-              setUser(updatedUser);
+            if (planRes.ok) {
+  console.log('✅ Applied pending plan:', pendingPlan);
+  localStorage.removeItem('pending-plan');
 
-              // ✅ Conditional redirects based on role
-              if (updatedUser.role === 'ADMIN') {
-                navigate('/admin-dashboard');
-              } else if (!updatedUser.plan) {
-                navigate('/select-plan');
-              } else {
-                navigate('/case-type-selection');
-              }
+  // ✅ Manually update user object
+  const updatedUser = { ...user, plan: pendingPlan };
+  localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
+  setUser(updatedUser);
 
-              return;
+  // ✅ Conditional redirects based on role and updated plan
+  if (updatedUser.role === 'ADMIN') {
+    navigate('/admin-dashboard');
+  } else if (!updatedUser.plan) {
+    navigate('/select-plan');
+  } else {
+    navigate('/case-type-selection');
+  }
+
+  return;
+
+
             } else {
               console.warn('⚠️ Failed to fetch updated user after applying plan.');
               navigate('/select-plan');
