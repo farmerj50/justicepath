@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const devOrigins = ['http://localhost:5173'];
-const prodOrigins = [process.env.FRONTEND_ORGIN];
+const prodOrigins = [process.env.FRONTEND_ORIGIN];
 
 const allowedOrigins =
   process.env.NODE_ENV === 'production' ? prodOrigins : devOrigins;
