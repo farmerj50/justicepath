@@ -254,6 +254,23 @@ button:disabled {
 @tailwind components;
 @tailwind utilities;
 /* stylelint-enable */
+@layer utilities {
+  @keyframes ripple {
+    0% {
+      transform: scale(0);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  .animate-ripple {
+    animation: ripple 1.5s ease-out infinite;
+  }
+}
+
 
 
 
