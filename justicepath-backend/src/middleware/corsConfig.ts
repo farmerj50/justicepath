@@ -4,13 +4,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const devOrigins = ['http://localhost:5173'];
-const prodOrigins = ['https://justicepath-production.up.railway.app'];
+const prodOrigins = [process.env.FRONTEND_ORGIN];
 
 const allowedOrigins =
   process.env.NODE_ENV === 'production' ? prodOrigins : devOrigins;
 
 const corsOptions: CorsOptions = {
   origin: (origin, cb) => {
+    console.log('🌍 Incoming request from origin:', origin);
     if (!origin || allowedOrigins.includes(origin)) {
       cb(null, true);
     } else {
