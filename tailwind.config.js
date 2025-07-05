@@ -4,10 +4,19 @@ module.exports = {
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
   ],
-  darkMode: 'class', // ✅ Add this line
+  darkMode: 'class', // ✅ Your existing setting remains
   theme: {
-    extend: {},
+    extend: {
+      keyframes: {
+        ripple: {
+          '0%': { transform: 'scale(0)', opacity: '1' },
+          '100%': { transform: 'scale(4)', opacity: '0' },
+        },
+      },
+      animation: {
+        ripple: 'ripple 1.5s ease-out infinite',
+      },
+    },
   },
   plugins: [],
 };
-
