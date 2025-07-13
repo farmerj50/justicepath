@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext'; // ✅
+import { useNavigate, useLocation } from 'react-router-dom';
 
 
 
@@ -11,6 +12,15 @@ const Navbar = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme(); // ✅
+  const navigate = useNavigate();
+  const location = useLocation();
+  const handleDocumentsClick = () => {
+  if (location.pathname === '/documents') {
+    window.dispatchEvent(new Event('show-documents-list'));
+  } else {
+    navigate('/documents');
+  }
+};
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -70,7 +80,13 @@ const Navbar = () => {
     )}
   </div>
 
-  <Link to="/documents" className="hover:text-yellow-400 transition">My Documents</Link>
+<button
+  onClick={handleDocumentsClick}
+  className="hover:text-yellow-400 transition"
+>
+  My Documents
+</button>
+
   <Link to="/pricing" className="hover:text-yellow-400 transition">Pricing</Link>
 
   {user?.role === 'ADMIN' && (

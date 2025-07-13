@@ -52,6 +52,8 @@ model Document {
   user        User     @relation(fields: [userId], references: [id])
   userId      String
   createdAt   DateTime @default(now())
+  status    String?  @default("draft")
+  source    String?  @default("form")
 }
 
 model AiGeneratedDocument {
@@ -63,10 +65,20 @@ model AiGeneratedDocument {
   content        String
   followUps      Json?
   aiSuggestion   String?
-  source         String?
-  status         String?
+  title          String?
+  type           String?
+  fileUrl        String?
+  name           String?
+  court          String?
+  motionType     String?
+  caseNumber     String?
+  claimants      String?
+  respondents    String?
 
   createdAt      DateTime @default(now())
+  status      String?  @default("draft")
+  source      String?  @default("ai")
 }
+
 
 
