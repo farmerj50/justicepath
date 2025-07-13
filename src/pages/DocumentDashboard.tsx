@@ -34,6 +34,26 @@ const DocumentsDashboard = () => {
   const navigate = useNavigate();
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
   const { user } = useAuth();
+  const handleDelete = async (id: string) => {
+  if (!window.confirm('Are you sure you want to delete this document?')) return;
+
+  try {
+    const res = await fetch(`${API_URL}/api/ai/ai-documents/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to delete document');
+    }
+
+    // Remove from local state
+    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+  } catch (err) {
+    console.error('❌ Failed to delete:', err);
+    alert('Could not delete document. Please try again.');
+  }
+};
+
 
   const handleFollowUp = async () => {
     if (!followUpInput.trim()) return;
@@ -357,7 +377,22 @@ try {
 
           <div className="flex-1 bg-black overflow-auto p-4">
             {!previewFile && (
-  <div className="p-8">
+              <div className="p-8">
+              {aiResponse && (
+              <div className="mb-6">
+                <button
+                onClick={() => {
+                  setAiResponse('');
+                  setPreviewFile(null);
+                  setShowModal(false);
+                  }}
+                  className="px-4 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-600 transition"
+                >
+                  Show My Documents
+                </button>
+                </div>
+              )}
+  
     {aiResponse ? (
       <div className="bg-gray-800 text-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4 text-yellow-400">AI Response</h2>
@@ -418,7 +453,11 @@ try {
               >
                 View / Edit
               </Link>
-              <button className="text-red-400 hover:underline text-sm">Delete</button>
+              <button className="text-red-400 hover:underline text-sm"
+              onClick={() => handleDelete(doc.id)}
+              >
+                Delete
+              </button>
             </div>
           </div>
         ))}
