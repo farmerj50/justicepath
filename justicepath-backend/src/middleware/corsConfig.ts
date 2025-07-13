@@ -1,23 +1,31 @@
-// src/middleware/corsConfig.ts
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
 const devOrigins = ['http://localhost:5173'];
-//const prodOrigins = [process.env.FRONTEND_ORIGIN];
-const prodOrigins = ['https://justicepath-production-6c74.up.railway.app'];
 
+/**
+ * Determines whether the incoming origin is allowed.
+ * In production, allows any origin starting with 'https://justicepath-production'.
+ * In development, only allows explicitly whitelisted dev origins.
+ */
+const allowedOrigins = (origin: string | undefined): boolean => {
+  if (!origin) return true; // allow non-browser requests (like Postman)
+  
+  if (process.env.NODE_ENV !== 'production') {
+    return devOrigins.includes(origin);
+  }
 
-const allowedOrigins =
-  process.env.NODE_ENV === 'production' ? prodOrigins : devOrigins;
+  return origin.startsWith('https://justicepath-production');
+};
 
 const corsOptions: CorsOptions = {
   origin: (origin, cb) => {
     console.log('🌍 Incoming request from origin:', origin);
-    console.log('✅ Allowed origins:', allowedOrigins);
-    console.log('✔ origin === allowedOrigins[0]:', origin === allowedOrigins[0]);
 
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (allowedOrigins(origin)) {
+      console.log('✅ CORS allowed');
       cb(null, true);
     } else {
       console.warn('❌ Blocked by CORS:', origin);
