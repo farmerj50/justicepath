@@ -13,17 +13,52 @@ const PremiumUpload: React.FC = () => {
     }
   };
 
-  const handleUpload = () => {
-    if (!selectedFile) {
-      setMessage('Please select a file to upload.');
-      return;
+  const handleUpload = async () => {
+  if (!selectedFile) {
+    setMessage('Please select a file to upload.');
+    return;
+  }
+
+  const userJson = localStorage.getItem('justicepath-user');
+  const user = userJson ? JSON.parse(userJson) : null;
+  const userId = user?.id;
+
+  if (!userId) {
+    setMessage('User not logged in.');
+    return;
+  }
+
+  const token = localStorage.getItem('justicepath-token'); // ✅ recommended if using Bearer auth
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('userId', userId); // optional
+
+  try {
+    const response = await fetch('http://localhost:5000/api/documents/upload', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`, // ✅ required if using authMiddleware
+      },
+      body: formData,
+      credentials: 'include', // only needed if using cookie-based sessions
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result?.message || 'Upload failed');
     }
 
-    // Placeholder upload logic (replace with backend integration)
-    setTimeout(() => {
-      setMessage(`✅ File "${selectedFile.name}" uploaded successfully.`);
-    }, 1000);
-  };
+    console.log('✅ Upload success:', result);
+    setMessage(`✅ File "${selectedFile.name}" uploaded successfully.`);
+  } catch (error) {
+    console.error('❌ Upload error:', error);
+    setMessage('Upload failed. Check console for details.');
+  }
+};
+
+
 
   return (
     <>

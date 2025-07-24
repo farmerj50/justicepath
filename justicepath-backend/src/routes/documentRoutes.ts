@@ -4,6 +4,7 @@ const prisma = new PrismaClient();
 
 import authenticate from '../middleware/authMiddleware';
 import { Request, Response } from 'express';
+import multer from 'multer';
 
 const router = express.Router();
 
@@ -111,5 +112,74 @@ router.put('/:id', authenticate, async (req: Request, res: Response): Promise<vo
     return;
   }
 });
+// GET /user/:userId → get all documents for a user
+router.get('/user/:userId', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const { userId } = req.params;
+  const authUserId = req.user?.id;
+
+  // Only allow the authenticated user to access their own documents
+  if (!authUserId || authUserId !== userId) {
+    res.status(403).json({ message: 'Forbidden' });
+    return;
+  }
+
+  try {
+    const documents = await prisma.document.findMany({
+  where: { userId },
+  include: {
+    aiGeneratedDocument: true, // ✅ join the AI data
+  },
+  orderBy: {
+    createdAt: 'desc', // Optional: sort by most recent
+  },
+});
+
+
+    res.status(200).json(documents);
+  } catch (err) {
+    console.error('Error fetching user documents:', err);
+    res.status(500).json({ message: 'Server error', error: err });
+  }
+});
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Ensure this folder exists
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
+
+// POST /api/documents/upload
+router.post('/upload', upload.single('file'), authenticate, async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!req.file || !userId) {
+    res.status(400).json({ message: 'File or user ID missing' });
+    return;
+  }
+
+  try {
+    const newDoc = await prisma.document.create({
+      data: {
+        userId,
+        title: req.file.originalname,
+        type: 'uploaded', // adjust as needed
+        fileUrl: `/uploads/${req.file.filename}`,
+      }
+    });
+
+    res.status(201).json({ message: 'Upload successful', document: newDoc });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ message: 'Upload failed', error: err });
+  }
+});
+// GET /api/ai/ai-documents/:userId → returns AI documents only
+
+
+
 
 export default router;

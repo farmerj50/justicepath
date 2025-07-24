@@ -36,35 +36,45 @@ export const saveAiGeneratedDocument = async ({
   fileUrl?: string;
   type?: string;
 }) => {
-  // ✅ Only fields defined in AiGeneratedDocument
-  const aiDoc = await prisma.aiGeneratedDocument.create({
-    data: {
-      userId,
-      documentType,
-      content,
-      followUps,
-      aiSuggestion,
-      source,
-      status
-    }
-  });
+  try {
+    console.log("➡️ Saving Document...");
+    const savedDoc = await prisma.document.create({
+      data: {
+        userId,
+        title,
+        type,
+        fileUrl,
+        content,
+        name,
+        court,
+        motionType,
+        caseNumber,
+        claimants,
+        respondents,
+        source,
+        status
+      }
+    });
 
-  // ✅ Only fields defined in Document
-  const savedDoc = await prisma.document.create({
-    data: {
-      userId,
-      title,
-      type,
-      fileUrl,
-      content,
-      name,
-      court,
-      motionType,
-      caseNumber,
-      claimants,
-      respondents
-    }
-  });
+    console.log("✅ Document saved with ID:", savedDoc.id);
 
-  return { aiDoc, savedDoc };
+    console.log("➡️ Saving AI-generated metadata...");
+    const aiDoc = await prisma.aiGeneratedDocument.create({
+      data: {
+        userId,
+        documentId: savedDoc.id,
+        followUps,
+        aiSuggestion,
+        source,
+        status
+      }
+    });
+
+    console.log("✅ AI Document saved:", aiDoc.id);
+
+    return { aiDoc, savedDoc };
+  } catch (error) {
+    console.error("❌ Error in saveAiGeneratedDocument:", error);
+    throw error;
+  }
 };
