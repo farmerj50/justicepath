@@ -122,7 +122,16 @@ const DocumentsDashboard = () => {
   useEffect(() => {
     const fetchDocuments = async () => {
       if (!user) return;
-      const res = await fetch(`${API_URL}/api/ai/ai-documents/${user.id}`);
+      const token = localStorage.getItem('justicepath-token');
+      console.log('Token:', token); // Debug line
+
+      const res = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
+  headers: {
+    'Authorization': `Bearer ${token}`, // <-- Your login token here
+    'Content-Type': 'application/json',
+  }
+});
+
       const data = await res.json();
       setDocuments(data);
     };
@@ -137,13 +146,32 @@ const DocumentsDashboard = () => {
     };
   }, [previewFile]);
 
-  const handleFileUpload = (file: File) => {
-    const blobUrl = URL.createObjectURL(file);
-    setPreviewFile(blobUrl);
-    setShowModal(false);
-    setSelectedPage(1);
-    setTimeout(() => navigate('/documents'), 300);
-  };
+  const handleFileUpload = async (file: File) => {
+  const blobUrl = URL.createObjectURL(file);
+  setPreviewFile(blobUrl);
+  setShowModal(false);
+  setSelectedPage(1);
+
+  // ✅ Re-fetch documents
+  const token = localStorage.getItem('justicepath-token');
+  if (user?.id && token) {
+    try {
+      const res = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      setDocuments(data);
+    } catch (err) {
+      console.error('❌ Failed to fetch updated documents:', err);
+    }
+  }
+
+  navigate('/documents'); // optional: refresh view state
+};
+
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -172,9 +200,15 @@ const DocumentsDashboard = () => {
     return () => window.removeEventListener('message', handleDropdownMessage);
   }, [navigate]);
 
+  
   useEffect(() => {
     const saveAndRender = async () => {
       if (fromAI && generatedDocument) {
+        if (!user?.id || !documentType || !generatedDocument) {
+          console.error('❌ Missing required fields for AI document save.');
+          return;
+        }
+
         let blob: Blob;
 
         if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
@@ -191,57 +225,26 @@ const DocumentsDashboard = () => {
           }
 
           setAiResponse(generatedDocument);
-          setAiResponse(generatedDocument);
-setShowModal(false);
-
-// ✅ Re-add AI document analysis
-try {
-  const res = await fetch(`${API_URL}/api/ai/analyze-document`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: generatedDocument, documentType }),
-  });
-
-  const data = await res.json();
-  if (data.main) {
-    setSuggestion(data.main);
-    setFollowUp('What are next steps?');
-  }
-} catch (error) {
-  console.error('❌ AI backend analysis failed:', error);
-}
-
           setShowModal(false);
 
           try {
-            const res = await fetch(`${API_URL}/api/ai/save-ai-document`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({
-             userId: user?.id,                      // ✅ REQUIRED
-             documentType,
-             content: generatedDocument,
-             followUps: [{ question: 'What are next steps?', answer: generatedDocument }], // optional
-             aiSuggestion: generatedDocument,      // optional but helpful
-             source: 'form',                       // optional tag
-             status: 'draft',                      // optional status
-             }),
-           });
+            const analysisRes = await fetch(`${API_URL}/api/ai/analyze-document`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: generatedDocument, documentType }),
+            });
 
-
-            const data = await res.json();
-            if (data.main) {
-              setSuggestion(data.main);
+            const analysisData = await analysisRes.json();
+            if (analysisData.main) {
+              setSuggestion(analysisData.main);
               setFollowUp('What are next steps?');
             }
           } catch (error) {
             console.error('❌ AI backend analysis failed:', error);
           }
-          console.log("📃 generatedDocument content:", generatedDocument);
-
 
           const documentPayload = {
-            userId: user?.id,
+            userId: user.id,
             documentType,
             title: `${documentType} Draft`,
             content: generatedDocument,
@@ -250,20 +253,17 @@ try {
             source: 'form',
             status: 'draft',
           };
-          console.log("🧾 Sending payload to backend:", documentPayload);
 
-
-          if (documentType && user?.id) {
-            try {
-              await fetch(`${API_URL}/api/ai/save-ai-document`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(documentPayload),
-              });
-              console.log('🧠 AI document metadata saved to database');
-            } catch (err) {
-              console.error('❌ Failed to save AI document to DB:', err);
-            }
+          try {
+            const saveRes = await fetch(`${API_URL}/api/ai/save-ai-document`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(documentPayload),
+            });
+            const saveData = await saveRes.json();
+            console.log('✅ AI document saved:', saveData);
+          } catch (err) {
+            console.error('❌ Failed to save AI document to DB:', err);
           }
 
           return;
@@ -272,12 +272,17 @@ try {
           return;
         }
 
-        const blobUrl = URL.createObjectURL(blob);
-        setPreviewFile(blobUrl);
-        setSelectedPage(1);
-        setShowModal(false);
+        try {
+          const blobUrl = URL.createObjectURL(blob);
+          console.log("📎 Generated Blob URL:", blobUrl);
+          setPreviewFile(blobUrl);
+          setSelectedPage(1);
+          setShowModal(false);
 
-        return () => URL.revokeObjectURL(blobUrl);
+          return () => URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+          console.error('❌ Failed to render PDF blob:', err);
+        }
       }
     };
 

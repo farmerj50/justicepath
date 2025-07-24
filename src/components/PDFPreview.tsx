@@ -8,12 +8,21 @@ interface PDFPreviewProps {
   previewMode?: boolean;
 }
 
+
 const PDFPreview: React.FC<PDFPreviewProps> = ({ fileUrl, previewMode = false }) => {
+  console.log("📁 Sending fileUrl to PDFPreview:", fileUrl);
   const [pages, setPages] = useState<string[]>([]);
 
-  useEffect(() => {
-    const loadPdf = async () => {
-      const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+useEffect(() => {
+  const loadPdf = async () => {
+    try {
+      const fullUrl = fileUrl.startsWith('http') 
+        ? fileUrl 
+        : `${import.meta.env.VITE_API_URL}${fileUrl}`;
+      
+      console.log("📄 Attempting to load PDF from:", fullUrl);
+
+      const pdf = await pdfjsLib.getDocument(fullUrl).promise;
       const pageImages: string[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -30,10 +39,15 @@ const PDFPreview: React.FC<PDFPreviewProps> = ({ fileUrl, previewMode = false })
       }
 
       setPages(pageImages);
-    };
+    } catch (err) {
+      console.error('❌ Failed to load or render PDF:', err);
+      setPages([]);
+    }
+  };
 
-    loadPdf();
-  }, [fileUrl, previewMode]);
+  loadPdf();
+}, [fileUrl, previewMode]);
+
 
   return (
     <div
