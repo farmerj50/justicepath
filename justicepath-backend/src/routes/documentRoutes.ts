@@ -5,29 +5,13 @@ const prisma = new PrismaClient();
 import authenticate from '../middleware/authMiddleware';
 import { Request, Response } from 'express';
 import multer from 'multer';
+import pdfParse from 'pdf-parse';
+import fs from 'fs';
+
 
 const router = express.Router();
 
-router.get('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const userId = req.user?.id;
 
-  try {
-    const doc = await prisma.document.findUnique({ where: { id } });
-
-    if (!doc || doc.userId !== userId) {
-      res.status(403).json({ message: 'Forbidden' });
-      return;
-    }
-
-    res.status(200).json(doc);
-    return; // ✅ explicitly return nothing
-  } catch (err) {
-    console.error('Error fetching document:', err);
-    res.status(500).json({ message: 'Server error' });
-    return;
-  }
-});
 router.post('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.id;
 
@@ -82,36 +66,7 @@ router.post('/', authenticate, async (req: Request, res: Response): Promise<void
 });
 
 
-router.put('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const userId = req.user?.id;
 
-  if (!userId) {
-    res.status(401).json({ message: 'Unauthorized' });
-    return;
-  }
-
-  try {
-    const doc = await prisma.document.findUnique({ where: { id } });
-
-    if (!doc || doc.userId !== userId) {
-      res.status(403).json({ message: 'Forbidden' });
-      return;
-    }
-
-    const updated = await prisma.document.update({
-      where: { id },
-      data: req.body,
-    });
-
-    res.status(200).json(updated);
-    return;
-  } catch (err) {
-    console.error('Error updating document:', err);
-    res.status(500).json({ message: 'Server error' });
-    return;
-  }
-});
 // GET /user/:userId → get all documents for a user
 router.get('/user/:userId', authenticate, async (req: Request, res: Response): Promise<void> => {
   const { userId } = req.params;
@@ -157,17 +112,23 @@ router.post('/upload', upload.single('file'), authenticate, async (req: Request,
   const userId = req.user?.id;
 
   if (!req.file || !userId) {
-    res.status(400).json({ message: 'File or user ID missing' });
+    res.status(400).json({ message: 'Missing file or user ID' });
     return;
   }
 
   try {
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const parsed = await pdfParse(fileBuffer);
+
     const newDoc = await prisma.document.create({
       data: {
         userId,
         title: req.file.originalname,
-        type: 'uploaded', // adjust as needed
+        type: 'uploaded',
         fileUrl: `/uploads/${req.file.filename}`,
+        content: parsed.text, // ✅ Save the PDF content!
+        source: 'user',
+        status: 'uploaded'
       }
     });
 
@@ -178,6 +139,67 @@ router.post('/upload', upload.single('file'), authenticate, async (req: Request,
   }
 });
 // GET /api/ai/ai-documents/:userId → returns AI documents only
+
+router.put('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const doc = await prisma.document.findUnique({ where: { id } });
+
+    if (!doc || doc.userId !== userId) {
+      res.status(403).json({ message: 'Forbidden' });
+      return;
+    }
+
+    const updated = await prisma.document.update({
+      where: { id },
+      data: req.body,
+    });
+
+    res.status(200).json(updated);
+    return;
+  } catch (err) {
+    console.error('Error updating document:', err);
+    res.status(500).json({ message: 'Server error' });
+    return;
+  }
+});
+// GET /api/documents/:id → Fetch a single document by ID
+router.get('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { id },
+      include: {
+        aiGeneratedDocument: true, // Optional join
+      },
+    });
+
+    if (!doc) {
+      res.status(404).json({ message: 'Document not found' });
+      return;
+    }
+
+    // Ensure document belongs to the current user
+    if (doc.userId !== userId) {
+      res.status(403).json({ message: 'Unauthorized access' });
+      return;
+    }
+
+    res.status(200).json(doc);
+  } catch (err) {
+    console.error('Error fetching document:', err);
+    res.status(500).json({ message: 'Error retrieving document', error: err });
+  }
+});
 
 
 

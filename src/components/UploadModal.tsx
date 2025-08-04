@@ -3,13 +3,13 @@ import React from 'react';
 interface UploadModalProps {
   
   onClose: () => void;
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File) => Promise<void>;
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({ onClose, onFileUpload }) => {
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      onFileUpload(e.target.files[0]);
+      await onFileUpload(e.target.files[0]);
       onClose(); // close after upload
     }
   };

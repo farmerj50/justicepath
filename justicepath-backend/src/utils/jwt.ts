@@ -10,7 +10,7 @@ interface JWTPayload {
 
 // Generate a JWT with id and role
 export const generateToken = (id: string, role: string): string =>
-  jwt.sign({ id, role }, SECRET, { expiresIn: '7d' });
+  jwt.sign({ id, role }, SECRET, { expiresIn: '15m' });
 
 // Verify a JWT and cast to our JWTPayload shape
 export const verifyToken = (token: string): JWTPayload =>

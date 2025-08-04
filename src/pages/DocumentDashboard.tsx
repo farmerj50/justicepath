@@ -5,6 +5,7 @@ import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
 import { useAuth } from '../context/AuthContext';
 import { generateLegalAdvice } from '../utils/agentHelper';
+import samplePDF from '../assets/sample.pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
@@ -32,6 +33,8 @@ const DocumentsDashboard = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const testPdfUrl = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
   const { user } = useAuth();
   const handleDelete = async (id: string) => {
@@ -120,25 +123,26 @@ const DocumentsDashboard = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      if (!user) return;
-      const token = localStorage.getItem('justicepath-token');
-      console.log('Token:', token); // Debug line
+  const fetchDocuments = async () => {
+    if (!user) return;
 
-      const res = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
-  headers: {
-    'Authorization': `Bearer ${token}`, // <-- Your login token here
-    'Content-Type': 'application/json',
-  }
-});
+    const token = localStorage.getItem('justicepath-token');
+    const res = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-      const data = await res.json();
-      setDocuments(data);
-    };
-    fetchDocuments();
-  }, []);
+    const data = await res.json();
+    setDocuments(data);
+  };
+
+  fetchDocuments();
+}, [user]);
 
   useEffect(() => {
+    console.log("👁️ Watching previewFile change:", previewFile);
     return () => {
       if (previewFile && typeof previewFile === 'string') {
         URL.revokeObjectURL(previewFile);
@@ -147,39 +151,81 @@ const DocumentsDashboard = () => {
   }, [previewFile]);
 
   const handleFileUpload = async (file: File) => {
-  const blobUrl = URL.createObjectURL(file);
-  setPreviewFile(blobUrl);
-  setShowModal(false);
-  setSelectedPage(1);
-
-  // ✅ Re-fetch documents
   const token = localStorage.getItem('justicepath-token');
-  if (user?.id && token) {
-    try {
-      const res = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const data = await res.json();
-      setDocuments(data);
-    } catch (err) {
-      console.error('❌ Failed to fetch updated documents:', err);
-    }
+  if (!user?.id || !token) {
+    console.error('❌ Missing user or token');
+    return;
   }
 
-  navigate('/documents'); // optional: refresh view state
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const uploadRes = await fetch(`${API_URL}/api/documents/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error('Upload failed');
+    }
+
+    const result = await uploadRes.json();
+    console.log('✅ Upload result:', result);
+
+    // Show preview
+const blobUrl = URL.createObjectURL(file);
+console.log('📄 Direct preview file URL:', blobUrl);
+setPreviewFile(blobUrl);
+setShowModal(false);
+setSelectedPage(1);
+
+
+
+    //console.log("📄 Preview file URL:", blobUrl);
+    console.log("🧠 Current previewFile state:", previewFile);
+
+    setShowModal(false);
+    setSelectedPage(1);
+
+    // Refresh user documents
+    const docRes = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!docRes.ok) {
+      throw new Error('Failed to fetch updated documents');
+    }
+
+    const data = await docRes.json();
+    setDocuments(data);
+    navigate('/documents'); // optional
+  } catch (err) {
+    console.error('❌ Upload or fetch failed:', err);
+    alert('Upload failed. Check the console for details.');
+  }
 };
 
 
+
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log("✅ PDF Loaded:", numPages);
     setNumPages(numPages);
     setSelectedPage(1);
   };
 
-  const filteredDocs =
-    filter === 'All' ? documents : documents.filter((doc) => doc.type === filter);
+const filteredDocs =
+  Array.isArray(documents) && documents.length > 0
+    ? filter === 'All'
+      ? documents
+      : documents.filter((doc) => doc?.type === filter)
+    : [];
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
@@ -310,6 +356,8 @@ const DocumentsDashboard = () => {
     window.addEventListener('message', handleAiGenerated);
     return () => window.removeEventListener('message', handleAiGenerated);
   }, []);
+  console.log("📄 Sample docs:", filteredDocs.slice(0, 10));
+
 
   return (
     <>
@@ -359,19 +407,21 @@ const DocumentsDashboard = () => {
                     onClick={() => setSelectedPage(index + 1)}
                   >
                     <div className="w-full h-full flex justify-center items-center overflow-hidden">
-                      <Document
-                        file={previewFile as string}
-                        onLoadSuccess={onDocumentLoadSuccess}
-                        loading=""
-                        noData=""
-                      >
-                        <Page
-                          pageNumber={index + 1}
-                          height={230}
-                          renderAnnotationLayer={false}
-                          renderTextLayer={false}
-                        />
-                      </Document>
+<Document
+  file={previewFile || testPdfUrl}
+  onLoadSuccess={onDocumentLoadSuccess}
+  onLoadError={(err) => console.error("❌ PDF load error:", err)} // <-- ADD THIS LINE
+  loading={<p className="text-sm text-gray-400">Loading preview...</p>}
+  noData={<p className="text-sm text-red-500">No file provided.</p>}
+>
+  <Page
+    pageNumber={index + 1}
+    height={230}
+    renderAnnotationLayer={false}
+    renderTextLayer={false}
+  />
+</Document>
+
                     </div>
                   </div>
                 ))}
@@ -381,23 +431,40 @@ const DocumentsDashboard = () => {
           </div>
 
           <div className="flex-1 bg-black overflow-auto p-4">
-            {!previewFile && (
-              <div className="p-8">
-              {aiResponse && (
-              <div className="mb-6">
-                <button
-                onClick={() => {
-                  setAiResponse('');
-                  setPreviewFile(null);
-                  setShowModal(false);
-                  }}
-                  className="px-4 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-600 transition"
-                >
-                  Show My Documents
-                </button>
-                </div>
-              )}
-  
+            {previewFile ? (
+  <div className="w-full h-full flex justify-center">
+    <Document
+      file={previewFile}
+      onLoadSuccess={onDocumentLoadSuccess}
+      onLoadError={(err) => console.error("❌ PDF load error:", err)}
+      loading={<p className="text-sm text-gray-400">Loading full document...</p>}
+      noData={<p className="text-sm text-red-500">No file provided.</p>}
+    >
+      <Page
+        pageNumber={selectedPage || 1}
+        width={800}
+        renderAnnotationLayer={true}
+        renderTextLayer={true}
+      />
+    </Document>
+  </div>
+) : (
+  <div className="p-8">
+    {aiResponse && (
+      <div className="mb-6">
+        <button
+          onClick={() => {
+            setAiResponse('');
+            setPreviewFile(null);
+            setShowModal(false);
+          }}
+          className="px-4 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-600 transition"
+        >
+          Show My Documents
+        </button>
+      </div>
+    )}
+
     {aiResponse ? (
       <div className="bg-gray-800 text-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4 text-yellow-400">AI Response</h2>
@@ -441,6 +508,9 @@ const DocumentsDashboard = () => {
       <p className="text-gray-400">No documents found.</p>
     ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+
+
         {filteredDocs.map((doc) => (
           <div
             key={doc.id}
@@ -449,7 +519,10 @@ const DocumentsDashboard = () => {
             <h3 className="text-lg font-semibold text-yellow-400">{doc.title}</h3>
             <p className="text-sm text-gray-400 mt-1">Type: {doc.type}</p>
             <p className="text-sm text-gray-500 mt-1">
-              Created: {new Date(doc.createdAt).toLocaleDateString()}
+              <p className="text-sm text-gray-500 mt-1">
+  Created: {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : <em className="text-gray-400">Not available</em>}
+</p>
+
             </p>
             <div className="mt-4 flex gap-4">
               <Link
