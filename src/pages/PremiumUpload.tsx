@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 
 const PremiumUpload: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewURL, setPreviewURL] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+
+  // Generate preview URL when file is selected
+  useEffect(() => {
+    if (selectedFile) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewURL(url);
+
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [selectedFile]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -14,51 +25,44 @@ const PremiumUpload: React.FC = () => {
   };
 
   const handleUpload = async () => {
-  if (!selectedFile) {
-    setMessage('Please select a file to upload.');
-    return;
-  }
-
-  const userJson = localStorage.getItem('justicepath-user');
-  const user = userJson ? JSON.parse(userJson) : null;
-  const userId = user?.id;
-
-  if (!userId) {
-    setMessage('User not logged in.');
-    return;
-  }
-
-  const token = localStorage.getItem('justicepath-token'); // ✅ recommended if using Bearer auth
-
-  const formData = new FormData();
-  formData.append('file', selectedFile);
-  formData.append('userId', userId); // optional
-
-  try {
-    const response = await fetch('http://localhost:5000/api/documents/upload', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`, // ✅ required if using authMiddleware
-      },
-      body: formData,
-      credentials: 'include', // only needed if using cookie-based sessions
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result?.message || 'Upload failed');
+    if (!selectedFile) {
+      setMessage('Please select a file to upload.');
+      return;
     }
 
-    console.log('✅ Upload success:', result);
-    setMessage(`✅ File "${selectedFile.name}" uploaded successfully.`);
-  } catch (error) {
-    console.error('❌ Upload error:', error);
-    setMessage('Upload failed. Check console for details.');
-  }
-};
+    const userJson = localStorage.getItem('justicepath-user');
+    const user = userJson ? JSON.parse(userJson) : null;
+    const userId = user?.id;
 
+    if (!userId) {
+      setMessage('User not logged in.');
+      return;
+    }
 
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('userId', userId);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.message || 'Upload failed');
+      }
+
+      console.log('✅ Upload success:', result);
+      setMessage(`✅ File "${selectedFile.name}" uploaded successfully.`);
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      setMessage('Upload failed. Check console for details.');
+    }
+  };
 
   return (
     <>
@@ -77,7 +81,7 @@ const PremiumUpload: React.FC = () => {
           padding: '2rem',
           borderRadius: '1rem',
           width: '100%',
-          maxWidth: '500px',
+          maxWidth: '600px',
           boxShadow: '0 0 10px rgba(0,0,0,0.3)'
         }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>📎 Upload a Document</h2>
@@ -105,7 +109,24 @@ const PremiumUpload: React.FC = () => {
           </button>
 
           {message && (
-            <p style={{ marginTop: '1rem', color: 'lightgreen' }}>{message}</p>
+            <p style={{ marginTop: '1rem', color: message.startsWith('✅') ? 'lightgreen' : 'red' }}>
+              {message}
+            </p>
+          )}
+
+          {previewURL && selectedFile?.type === 'application/pdf' && (
+            <iframe
+              src={previewURL}
+              title="PDF Preview"
+              style={{
+                width: '100%',
+                height: '400px',
+                marginTop: '1.5rem',
+                border: '1px solid #444',
+                borderRadius: '8px',
+                backgroundColor: '#fff'
+              }}
+            />
           )}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import multer, { Multer } from 'multer'; // optional, helps with autocomplete
+import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
@@ -7,7 +7,7 @@ import fs from 'fs';
 const prisma = new PrismaClient();
 const router = Router();
 
-// Setup multer for disk storage
+// File upload setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, '..', 'uploads');
@@ -18,10 +18,9 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${file.originalname}`);
   },
 });
-
 const upload = multer({ storage });
 
-// 👇 Fix here
+// Upload route
 router.post('/upload', upload.single('file'), async (req: Request, res: Response): Promise<void> => {
   const { userId, title = 'Uploaded Document' } = req.body;
   const file = (req as Request & { file: Express.Multer.File }).file;
@@ -47,6 +46,25 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
   } catch (error) {
     console.error('Upload failed:', error);
     res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+// View single document by ID
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const document = await prisma.document.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!document) {
+      res.status(404).json({ message: 'Document not found' });
+      return;
+    }
+
+    res.status(200).json(document);
+  } catch (err) {
+    console.error('Error fetching document:', err);
+    res.status(500).json({ message: 'Server error', error: err });
   }
 });
 

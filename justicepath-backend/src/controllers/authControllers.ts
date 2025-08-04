@@ -3,6 +3,7 @@ import { PrismaClient, Role } from '@prisma/client';
 import { hashPassword, comparePassword } from '../utils/hash';
 import { generateToken } from '../utils/jwt';
 import { normalize } from 'path';
+import jwt from 'jsonwebtoken'; // ✅ Added for decoding token
 
 const prisma = new PrismaClient();
 
@@ -49,6 +50,13 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     }
 
     const token = generateToken(user.id, user.role);
+    const decoded = jwt.decode(token) as any;
+    console.log('[Register Token Issued]', {
+      id: user.id,
+      role: user.role,
+      expiresAt: new Date(decoded.exp * 1000).toISOString(),
+    });
+
     res.status(201).json({ user, token });
 
   } catch (err) {
@@ -81,6 +89,13 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = generateToken(user.id, user.role);
+    const decoded = jwt.decode(token) as any;
+    console.log('[Login Token Issued]', {
+      id: user.id,
+      role: user.role,
+      expiresAt: new Date(decoded.exp * 1000).toISOString(),
+    });
+
     res.status(200).json({
       user: {
         id: user.id,
