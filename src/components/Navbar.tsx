@@ -11,6 +11,12 @@ const Navbar = () => {
   const settingsDropdownRef = useRef<HTMLDivElement>(null);
 
   const { user } = useAuth();
+  const handleLogout = () => {
+  localStorage.removeItem('justicepath-user');
+  localStorage.removeItem('justicepath-token');
+  navigate('/login');
+};
+
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -119,31 +125,30 @@ const Navbar = () => {
             </svg>
           </button>
 
-          {settingsDropdownOpen && (
-            <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded shadow-lg w-40 z-50">
-              <button
-                onClick={() => {
-                  setSettingsDropdownOpen(false);
-                  navigate('/reset-password');
-                }}
-                className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
-              >
-                Reset Password
-              </button>
-              <button
-                onClick={() => {
-                  setSettingsDropdownOpen(false);
-                  localStorage.removeItem('justicepath-user');
-                  localStorage.removeItem('justicepath-token');
-                  navigate('/login');
-                }}
-                className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
+{settingsDropdownOpen && (
+  <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded shadow-lg w-40 z-50">
+    <button
+      onClick={() => {
+        setSettingsDropdownOpen(false);
+        navigate('/reset-password');
+      }}
+      className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+    >
+      Reset Password
+    </button>
+    <button
+      onClick={() => {
+        setSettingsDropdownOpen(false);
+        handleLogout();
+      }}
+      className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+    >
+      Logout
+    </button>
+  </div>
+)}
+</div>
+
 
         {/* 🌗 Theme Toggle (commented out for now) */}
         {/*
