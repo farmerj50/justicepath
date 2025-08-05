@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { User } from '../context/AuthContext';
 
+
+
 const SelectPlan: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
