@@ -28,6 +28,9 @@ const DocumentsDashboard = () => {
   const [followUp, setFollowUp] = useState('');
   const [suggestion, setSuggestion] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
+  const state = localStorage.getItem('state') || '';
+  const city = localStorage.getItem('city') || '';
+
   const API_URL = import.meta.env.VITE_API_URL;
   console.log("🔥 API URL:", import.meta.env.VITE_API_URL);
 
@@ -37,26 +40,37 @@ const DocumentsDashboard = () => {
 
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
   const { user } = useAuth();
-  const handleDelete = async (id: string) => {
+const handleDelete = async (id: string, type?: string) => {
   if (!window.confirm('Are you sure you want to delete this document?')) return;
 
+  const token = localStorage.getItem('justicepath-token');
+  if (!token) {
+    alert('User not authenticated');
+    return;
+  }
+
+  const url = type === 'ai'
+    ? `${API_URL}/api/documents/${id}?type=ai`
+    : `${API_URL}/api/documents/${id}`;
+
   try {
-    const res = await fetch(`${API_URL}/api/ai/ai-documents/${id}`, {
+    const res = await fetch(url, {
       method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`, // 🔐 Include token
+      },
     });
 
     if (!res.ok) {
       throw new Error('Failed to delete document');
     }
 
-    // Remove from local state
     setDocuments((prev) => prev.filter((doc) => doc.id !== id));
   } catch (err) {
     console.error('❌ Failed to delete:', err);
     alert('Could not delete document. Please try again.');
   }
 };
-
 
   const handleFollowUp = async () => {
     if (!followUpInput.trim()) return;
@@ -102,12 +116,14 @@ const DocumentsDashboard = () => {
       if (!docTypeParam || !user?.fullName || aiResponse) return;
 
       const result = await generateLegalAdvice({
-        caseType: docTypeParam,
-        fullName: user.fullName,
-        income: '0',
-        reason: 'I need help with this legal issue',
-        documentType: 'document',
-      });
+  caseType: docTypeParam || '', // <-- This is your legal issue type
+  fullName: user.fullName,
+  income: '0',
+  reason: 'I need help with this legal issue',
+  state: localStorage.getItem('state') || '',
+  city: localStorage.getItem('city') || '',
+});
+
 
       setAiResponse(result.main);
       setSuggestion(result.suggestion);

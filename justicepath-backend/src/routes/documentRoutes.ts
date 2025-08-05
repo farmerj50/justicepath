@@ -200,8 +200,43 @@ router.get('/:id', authenticate, async (req: Request, res: Response): Promise<vo
     res.status(500).json({ message: 'Error retrieving document', error: err });
   }
 });
+router.delete('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const type = req.query.type || 'regular'; // expects ?type=ai or defaults to regular
+  const userId = req.user?.id;
 
+  if (!userId) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
 
+  try {
+    if (type === 'ai') {
+      const aiDoc = await prisma.aiGeneratedDocument.findUnique({ where: { id } });
+
+      if (!aiDoc || aiDoc.userId !== userId) {
+        res.status(403).json({ message: 'Unauthorized or not found' });
+        return;
+      }
+
+      await prisma.aiGeneratedDocument.delete({ where: { id } });
+      res.status(200).json({ message: 'AI document deleted' });
+    } else {
+      const doc = await prisma.document.findUnique({ where: { id } });
+
+      if (!doc || doc.userId !== userId) {
+        res.status(403).json({ message: 'Forbidden' });
+        return;
+      }
+
+      await prisma.document.delete({ where: { id } });
+      res.status(200).json({ message: 'Document deleted successfully' });
+    }
+  } catch (err) {
+    console.error('Error deleting document:', err);
+    res.status(500).json({ message: 'Failed to delete document', error: err });
+  }
+});
 
 
 export default router;
