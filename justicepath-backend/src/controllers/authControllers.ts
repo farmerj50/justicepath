@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient, Role } from '@prisma/client';
 import { hashPassword, comparePassword } from '../utils/hash';
 import { generateToken } from '../utils/jwt';
+import bcrypt from 'bcryptjs';
 import { normalize } from 'path';
 import jwt from 'jsonwebtoken'; // ✅ Added for decoding token
 
@@ -139,3 +140,34 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ message: 'Server error', error: err });
   }
 };
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user?.id;
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return void res.status(404).json({ error: 'User not found' });
+    }
+
+    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordMatch) {
+      return void res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return void res.status(200).json({ message: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return void res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+
+
