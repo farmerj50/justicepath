@@ -22,6 +22,7 @@
     "country-state-city": "^3.2.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.0",
+    "lucide-react": "^0.536.0",
     "openai": "^4.100.0",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^3.6.172",
