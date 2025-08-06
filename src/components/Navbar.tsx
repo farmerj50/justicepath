@@ -2,6 +2,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { Settings } from 'lucide-react';
+
 
 const Navbar = () => {
   const [caseDropdownOpen, setCaseDropdownOpen] = useState(false);
@@ -103,51 +105,38 @@ const Navbar = () => {
 
         {/* Settings Dropdown */}
         <div className="relative pr-2" ref={settingsDropdownRef}>
+  <button
+    onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
+    className="hover:text-yellow-400 transition p-2 rounded-full flex items-center justify-center"
+    aria-label="Settings"
+  >
+    <Settings className="text-white w-6 h-6" />
+  </button>
 
-          <button
-            onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
-            className="hover:text-yellow-400 transition"
-            aria-label="Settings"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33h.09A1.65 1.65 0 008 4.6V4a2 2 0 014 0v.09a1.65 1.65 0 001 1.51h.09a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.09c.22.64.87 1.09 1.51 1.09H21a2 2 0 010 4h-.09c-.64 0-1.2.45-1.51 1z"
-              />
-            </svg>
-          </button>
-
-{settingsDropdownOpen && (
-  <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded shadow-lg w-40 z-50">
-    <button
-      onClick={() => {
-        setSettingsDropdownOpen(false);
-        navigate('/reset-password');
-      }}
-      className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
-    >
-      Reset Password
-    </button>
-    <button
-      onClick={() => {
-        setSettingsDropdownOpen(false);
-        handleLogout();
-      }}
-      className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
-    >
-      Logout
-    </button>
-  </div>
-)}
+  {settingsDropdownOpen && (
+    <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded shadow-lg w-40 z-50">
+      <button
+        onClick={() => {
+          setSettingsDropdownOpen(false);
+          navigate('/reset-password');
+        }}
+        className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+      >
+        Reset Password
+      </button>
+      <button
+        onClick={() => {
+          setSettingsDropdownOpen(false);
+          handleLogout();
+        }}
+        className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+      >
+        Logout
+      </button>
+    </div>
+  )}
 </div>
+
 
 
         {/* 🌗 Theme Toggle (commented out for now) */}
