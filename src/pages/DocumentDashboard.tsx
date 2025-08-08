@@ -5,6 +5,7 @@ import { Document, Page } from 'react-pdf';
 import { pdfjs } from 'react-pdf';
 import { useAuth } from '../context/AuthContext';
 import { generateLegalAdvice } from '../utils/agentHelper';
+import samplePDF from '../assets/sample.pdf';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
@@ -27,33 +28,49 @@ const DocumentsDashboard = () => {
   const [followUp, setFollowUp] = useState('');
   const [suggestion, setSuggestion] = useState('');
   const [followUpInput, setFollowUpInput] = useState('');
+  const state = localStorage.getItem('state') || '';
+  const city = localStorage.getItem('city') || '';
+
   const API_URL = import.meta.env.VITE_API_URL;
   console.log("🔥 API URL:", import.meta.env.VITE_API_URL);
 
   const location = useLocation();
   const navigate = useNavigate();
+  const testPdfUrl = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
   const { user } = useAuth();
-  const handleDelete = async (id: string) => {
+const handleDelete = async (id: string, type?: string) => {
   if (!window.confirm('Are you sure you want to delete this document?')) return;
 
+  const token = localStorage.getItem('justicepath-token');
+  if (!token) {
+    alert('User not authenticated');
+    return;
+  }
+
+  const url = type === 'ai'
+    ? `${API_URL}/api/documents/${id}?type=ai`
+    : `${API_URL}/api/documents/${id}`;
+
   try {
-    const res = await fetch(`${API_URL}/api/ai/ai-documents/${id}`, {
+    const res = await fetch(url, {
       method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`, // 🔐 Include token
+      },
     });
 
     if (!res.ok) {
       throw new Error('Failed to delete document');
     }
 
-    // Remove from local state
     setDocuments((prev) => prev.filter((doc) => doc.id !== id));
   } catch (err) {
     console.error('❌ Failed to delete:', err);
     alert('Could not delete document. Please try again.');
   }
 };
-
 
   const handleFollowUp = async () => {
     if (!followUpInput.trim()) return;
@@ -99,12 +116,14 @@ const DocumentsDashboard = () => {
       if (!docTypeParam || !user?.fullName || aiResponse) return;
 
       const result = await generateLegalAdvice({
-        caseType: docTypeParam,
-        fullName: user.fullName,
-        income: '0',
-        reason: 'I need help with this legal issue',
-        documentType: 'document',
-      });
+  caseType: docTypeParam || '', // <-- This is your legal issue type
+  fullName: user.fullName,
+  income: '0',
+  reason: 'I need help with this legal issue',
+  state: localStorage.getItem('state') || '',
+  city: localStorage.getItem('city') || '',
+});
+
 
       setAiResponse(result.main);
       setSuggestion(result.suggestion);
@@ -120,16 +139,26 @@ const DocumentsDashboard = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      if (!user) return;
-      const res = await fetch(`${API_URL}/api/ai/ai-documents/${user.id}`);
-      const data = await res.json();
-      setDocuments(data);
-    };
-    fetchDocuments();
-  }, []);
+  const fetchDocuments = async () => {
+    if (!user) return;
+
+    const token = localStorage.getItem('justicepath-token');
+    const res = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await res.json();
+    setDocuments(data);
+  };
+
+  fetchDocuments();
+}, [user]);
 
   useEffect(() => {
+    console.log("👁️ Watching previewFile change:", previewFile);
     return () => {
       if (previewFile && typeof previewFile === 'string') {
         URL.revokeObjectURL(previewFile);
@@ -137,21 +166,82 @@ const DocumentsDashboard = () => {
     };
   }, [previewFile]);
 
-  const handleFileUpload = (file: File) => {
-    const blobUrl = URL.createObjectURL(file);
-    setPreviewFile(blobUrl);
+  const handleFileUpload = async (file: File) => {
+  const token = localStorage.getItem('justicepath-token');
+  if (!user?.id || !token) {
+    console.error('❌ Missing user or token');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const uploadRes = await fetch(`${API_URL}/api/documents/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error('Upload failed');
+    }
+
+    const result = await uploadRes.json();
+    console.log('✅ Upload result:', result);
+
+    // Show preview
+const blobUrl = URL.createObjectURL(file);
+console.log('📄 Direct preview file URL:', blobUrl);
+setPreviewFile(blobUrl);
+setShowModal(false);
+setSelectedPage(1);
+
+
+
+    //console.log("📄 Preview file URL:", blobUrl);
+    console.log("🧠 Current previewFile state:", previewFile);
+
     setShowModal(false);
     setSelectedPage(1);
-    setTimeout(() => navigate('/documents'), 300);
-  };
+
+    // Refresh user documents
+    const docRes = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!docRes.ok) {
+      throw new Error('Failed to fetch updated documents');
+    }
+
+    const data = await docRes.json();
+    setDocuments(data);
+    navigate('/documents'); // optional
+  } catch (err) {
+    console.error('❌ Upload or fetch failed:', err);
+    alert('Upload failed. Check the console for details.');
+  }
+};
+
+
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log("✅ PDF Loaded:", numPages);
     setNumPages(numPages);
     setSelectedPage(1);
   };
 
-  const filteredDocs =
-    filter === 'All' ? documents : documents.filter((doc) => doc.type === filter);
+const filteredDocs =
+  Array.isArray(documents) && documents.length > 0
+    ? filter === 'All'
+      ? documents
+      : documents.filter((doc) => doc?.type === filter)
+    : [];
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
@@ -172,9 +262,15 @@ const DocumentsDashboard = () => {
     return () => window.removeEventListener('message', handleDropdownMessage);
   }, [navigate]);
 
+  
   useEffect(() => {
     const saveAndRender = async () => {
       if (fromAI && generatedDocument) {
+        if (!user?.id || !documentType || !generatedDocument) {
+          console.error('❌ Missing required fields for AI document save.');
+          return;
+        }
+
         let blob: Blob;
 
         if (mimeType === 'application/pdf' && generatedDocument instanceof Uint8Array) {
@@ -191,57 +287,26 @@ const DocumentsDashboard = () => {
           }
 
           setAiResponse(generatedDocument);
-          setAiResponse(generatedDocument);
-setShowModal(false);
-
-// ✅ Re-add AI document analysis
-try {
-  const res = await fetch(`${API_URL}/api/ai/analyze-document`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: generatedDocument, documentType }),
-  });
-
-  const data = await res.json();
-  if (data.main) {
-    setSuggestion(data.main);
-    setFollowUp('What are next steps?');
-  }
-} catch (error) {
-  console.error('❌ AI backend analysis failed:', error);
-}
-
           setShowModal(false);
 
           try {
-            const res = await fetch(`${API_URL}/api/ai/save-ai-document`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({
-             userId: user?.id,                      // ✅ REQUIRED
-             documentType,
-             content: generatedDocument,
-             followUps: [{ question: 'What are next steps?', answer: generatedDocument }], // optional
-             aiSuggestion: generatedDocument,      // optional but helpful
-             source: 'form',                       // optional tag
-             status: 'draft',                      // optional status
-             }),
-           });
+            const analysisRes = await fetch(`${API_URL}/api/ai/analyze-document`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: generatedDocument, documentType }),
+            });
 
-
-            const data = await res.json();
-            if (data.main) {
-              setSuggestion(data.main);
+            const analysisData = await analysisRes.json();
+            if (analysisData.main) {
+              setSuggestion(analysisData.main);
               setFollowUp('What are next steps?');
             }
           } catch (error) {
             console.error('❌ AI backend analysis failed:', error);
           }
-          console.log("📃 generatedDocument content:", generatedDocument);
-
 
           const documentPayload = {
-            userId: user?.id,
+            userId: user.id,
             documentType,
             title: `${documentType} Draft`,
             content: generatedDocument,
@@ -250,20 +315,17 @@ try {
             source: 'form',
             status: 'draft',
           };
-          console.log("🧾 Sending payload to backend:", documentPayload);
 
-
-          if (documentType && user?.id) {
-            try {
-              await fetch(`${API_URL}/api/ai/save-ai-document`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(documentPayload),
-              });
-              console.log('🧠 AI document metadata saved to database');
-            } catch (err) {
-              console.error('❌ Failed to save AI document to DB:', err);
-            }
+          try {
+            const saveRes = await fetch(`${API_URL}/api/ai/save-ai-document`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(documentPayload),
+            });
+            const saveData = await saveRes.json();
+            console.log('✅ AI document saved:', saveData);
+          } catch (err) {
+            console.error('❌ Failed to save AI document to DB:', err);
           }
 
           return;
@@ -272,12 +334,17 @@ try {
           return;
         }
 
-        const blobUrl = URL.createObjectURL(blob);
-        setPreviewFile(blobUrl);
-        setSelectedPage(1);
-        setShowModal(false);
+        try {
+          const blobUrl = URL.createObjectURL(blob);
+          console.log("📎 Generated Blob URL:", blobUrl);
+          setPreviewFile(blobUrl);
+          setSelectedPage(1);
+          setShowModal(false);
 
-        return () => URL.revokeObjectURL(blobUrl);
+          return () => URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+          console.error('❌ Failed to render PDF blob:', err);
+        }
       }
     };
 
@@ -305,6 +372,8 @@ try {
     window.addEventListener('message', handleAiGenerated);
     return () => window.removeEventListener('message', handleAiGenerated);
   }, []);
+  console.log("📄 Sample docs:", filteredDocs.slice(0, 10));
+
 
   return (
     <>
@@ -354,19 +423,21 @@ try {
                     onClick={() => setSelectedPage(index + 1)}
                   >
                     <div className="w-full h-full flex justify-center items-center overflow-hidden">
-                      <Document
-                        file={previewFile as string}
-                        onLoadSuccess={onDocumentLoadSuccess}
-                        loading=""
-                        noData=""
-                      >
-                        <Page
-                          pageNumber={index + 1}
-                          height={230}
-                          renderAnnotationLayer={false}
-                          renderTextLayer={false}
-                        />
-                      </Document>
+<Document
+  file={previewFile || testPdfUrl}
+  onLoadSuccess={onDocumentLoadSuccess}
+  onLoadError={(err) => console.error("❌ PDF load error:", err)} // <-- ADD THIS LINE
+  loading={<p className="text-sm text-gray-400">Loading preview...</p>}
+  noData={<p className="text-sm text-red-500">No file provided.</p>}
+>
+  <Page
+    pageNumber={index + 1}
+    height={230}
+    renderAnnotationLayer={false}
+    renderTextLayer={false}
+  />
+</Document>
+
                     </div>
                   </div>
                 ))}
@@ -376,23 +447,40 @@ try {
           </div>
 
           <div className="flex-1 bg-black overflow-auto p-4">
-            {!previewFile && (
-              <div className="p-8">
-              {aiResponse && (
-              <div className="mb-6">
-                <button
-                onClick={() => {
-                  setAiResponse('');
-                  setPreviewFile(null);
-                  setShowModal(false);
-                  }}
-                  className="px-4 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-600 transition"
-                >
-                  Show My Documents
-                </button>
-                </div>
-              )}
-  
+            {previewFile ? (
+  <div className="w-full h-full flex justify-center">
+    <Document
+      file={previewFile}
+      onLoadSuccess={onDocumentLoadSuccess}
+      onLoadError={(err) => console.error("❌ PDF load error:", err)}
+      loading={<p className="text-sm text-gray-400">Loading full document...</p>}
+      noData={<p className="text-sm text-red-500">No file provided.</p>}
+    >
+      <Page
+        pageNumber={selectedPage || 1}
+        width={800}
+        renderAnnotationLayer={true}
+        renderTextLayer={true}
+      />
+    </Document>
+  </div>
+) : (
+  <div className="p-8">
+    {aiResponse && (
+      <div className="mb-6">
+        <button
+          onClick={() => {
+            setAiResponse('');
+            setPreviewFile(null);
+            setShowModal(false);
+          }}
+          className="px-4 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-600 transition"
+        >
+          Show My Documents
+        </button>
+      </div>
+    )}
+
     {aiResponse ? (
       <div className="bg-gray-800 text-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4 text-yellow-400">AI Response</h2>
@@ -436,6 +524,9 @@ try {
       <p className="text-gray-400">No documents found.</p>
     ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+
+
         {filteredDocs.map((doc) => (
           <div
             key={doc.id}
@@ -444,7 +535,10 @@ try {
             <h3 className="text-lg font-semibold text-yellow-400">{doc.title}</h3>
             <p className="text-sm text-gray-400 mt-1">Type: {doc.type}</p>
             <p className="text-sm text-gray-500 mt-1">
-              Created: {new Date(doc.createdAt).toLocaleDateString()}
+              <p className="text-sm text-gray-500 mt-1">
+  Created: {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : <em className="text-gray-400">Not available</em>}
+</p>
+
             </p>
             <div className="mt-4 flex gap-4">
               <Link

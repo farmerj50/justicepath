@@ -9,6 +9,7 @@ import { FaCalendarAlt } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { State, City } from 'country-state-city';
 
 
 
@@ -30,8 +31,11 @@ const persist = (key: string, value: any) => {
 const DocumentBuilder: React.FC = () => {
   const datePickerRef = useRef<any>(null);
   const { caseType } = useParams<{ caseType: string }>();
+  
   const { user } = useAuth();
   const navigate = useNavigate();
+
+
 
 
 useEffect(() => {
@@ -60,6 +64,16 @@ if (!user) return null;
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [documentType, setDocumentType] = useState('advice');
   const [loading, setLoading] = useState(false);
+  const [state, setState] = useState('');
+  const [city, setCity] = useState('');
+  const [cities, setCities] = useState<string[]>([]);
+  useEffect(() => {
+  if (state) {
+    const result = City.getCitiesOfState('US', state);
+    setCities(result.map((city) => city.name));
+  }
+}, [state]);
+
   
 const formatCurrency = (value: string) => {
   const numericValue = value.replace(/\D/g, ''); // Remove non-digit characters
@@ -131,13 +145,26 @@ const handleIncomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           errorMsg = 'Please enter your full name.';
         }
         break;
-      case 4:
+        case 4:
+        if (!state) {
+          isValid = false;
+          errorMsg = 'Please select a state.';
+        }
+         break;
+       case 5:
+        if (!city.trim()) {
+           isValid = false;
+           errorMsg = 'Please enter a city.';
+        }
+         break;
+
+      case 6:
         if (!isValidIncome(income)) {
           isValid = false;
           errorMsg = 'Enter a valid income (e.g., 2500 or 2500.50).';
         }
         break;
-      case 5:
+      case 7:
         if (!isValidReason(reason)) {
           isValid = false;
           errorMsg = 'Please describe your situation in more detail.';
@@ -170,6 +197,9 @@ const handleIncomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (saved.fullName) setFullName(saved.fullName);
     if (saved.income) setIncome(saved.income);
     if (saved.reason) setReason(saved.reason);
+    if (saved.state) setState(saved.state);
+    if (saved.city) setCity(saved.city);
+
     if (saved.receivedNotice !== undefined) setReceivedNotice(saved.receivedNotice);
     if (saved.noticeDate) {
       setNoticeDate(saved.noticeDate);
@@ -186,70 +216,74 @@ const handleIncomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const back = () => setStep((s) => s - 1);
 
   const stepTitleMap: Record<number, string> = {
-    1: 'Eviction Notice',
-    2: 'Date of Notice',
-    3: 'Your Full Name',
-    4: 'Monthly Income',
-    5: 'Your Situation',
-    6: 'Review & Submit'
-  };
+  1: 'Eviction Notice',
+  2: 'Date of Notice',
+  3: 'Your Full Name',
+  4: 'State',
+  5: 'City',
+  6: 'Monthly Income',
+  7: 'Your Situation',
+  8: 'Review & Submit'
+};
+
 
   const generatePrompt = (includeFollowUp = false) => {
   let contextDetails = '';
   let caseSpecifics = '';
 
   switch (caseType) {
-    case 'Eviction':
-      caseSpecifics = `
+  case 'Eviction':
+    caseSpecifics = `
 - Received Eviction Notice: ${receivedNotice ? 'Yes' : 'No'}
 - Date of Notice: ${noticeDate}
-      `.trim();
-      contextDetails = `
-You are a legal assistant helping a user in Georgia with a housing eviction issue.
-Provide steps that comply with Georgia landlord-tenant laws and eviction procedure.
+    `.trim();
+    contextDetails = `
+You are a legal assistant helping a user in ${city}, ${state} with a housing eviction issue.
+Provide steps that comply with ${state} landlord-tenant laws and eviction procedure.
 Include key deadlines, forms, defenses, and organizations that can help.
-Mention Georgia-specific statutes (like OCGA § 44-7) where applicable.
-      `.trim();
-      break;
+Mention ${state}-specific statutes (e.g., in Georgia, it's OCGA § 44-7) where applicable.
+    `.trim();
+    break;
 
-    case 'Small Claims':
-      contextDetails = `
-You are a legal assistant helping a user in Georgia with a small claims issue.
-Outline the exact steps for filing a small claims lawsuit, including monetary limits, timelines, and Georgia-specific procedures.
-Mention specific statutes (such as OCGA Title 15 or 9), and name at least one legal aid organization or consumer office that helps in small claims.
-      `.trim();
-      break;
+  case 'Small Claims':
+    contextDetails = `
+You are a legal assistant helping a user in ${city}, ${state} with a small claims issue.
+Outline the exact steps for filing a small claims lawsuit, including monetary limits, timelines, and ${state}-specific procedures.
+Mention relevant statutes (e.g., in Georgia, OCGA Title 15 or 9) and name at least one legal aid organization or consumer office that helps in small claims.
+    `.trim();
+    break;
 
-    case 'PII Misuse':
-      contextDetails = `
-You are a legal assistant helping a user in Georgia whose personal information (PII) has been used without their consent.
-Give guidance under Georgia privacy laws and federal law if relevant (like the FTC or Georgia Fair Business Practices Act).
-Mention official bodies like the Georgia Department of Law or the FTC.
-      `.trim();
-      break;
+  case 'PII Misuse':
+    contextDetails = `
+You are a legal assistant helping a user in ${city}, ${state} whose personal information (PII) has been misused.
+Give guidance under ${state} privacy laws and federal laws if relevant (such as the FTC or your state’s Fair Business Practices Act).
+Mention official bodies (e.g., ${state === 'Georgia' ? 'Georgia Department of Law' : 'the appropriate state agency'}) and the FTC.
+    `.trim();
+    break;
 
-    default:
-      contextDetails = `
-You are a legal assistant helping a user in Georgia with a legal issue of type: ${caseType}.
-Give detailed, actionable steps under Georgia law. Where possible, cite relevant Georgia statutes, forms, organizations, and local court procedures.
-      `.trim();
-      break;
-  }
-
+  default:
+    contextDetails = `
+You are a legal assistant helping a user in ${city}, ${state} with a legal issue of type: ${caseType}.
+Give detailed, actionable steps under ${state} law. Where possible, cite relevant ${state} statutes, forms, organizations, and local court procedures.
+    `.trim();
+    break;
+}
   return `
 ${contextDetails}
 
 User Details:
 - Case Type: ${caseType}
 - Full Name: ${fullName}
+- City: ${city}
+- State: ${state}
 - Monthly Income: ${income}
 ${caseSpecifics ? caseSpecifics : ''}
 - Case Reason / Situation: ${reason}
 
 Please include:
-1. Specific legal steps the user can take in Georgia.
-2. At least one **Georgia law or court rule** that applies.
-3. One or more **Georgia-based organizations or hotlines** they can contact for help.
+1. Specific legal steps the user can take in ${state}.
+2. At least one **${state} law or court rule** that applies.
+3. One or more **${state}-based organizations or hotlines** they can contact for help.
 4. Step-by-step breakdown of any court process involved.
 5. General recommendations to improve their legal standing.
 
@@ -258,7 +292,8 @@ ${includeFollowUp ? `Also answer this follow-up: "${followUp}"` : ''}
 **Do not suggest simply contacting an attorney.** Provide practical, direct help.
 
 End with a helpful follow-up question they might ask next.
-  `.trim();
+`.trim();
+
 };
 
 
@@ -272,6 +307,8 @@ End with a helpful follow-up question they might ask next.
       caseType: caseType || '',
       fullName,
       income,
+      state,
+      city,
       reason,
       noticeDate,
       receivedNotice: !!receivedNotice,
@@ -309,6 +346,8 @@ const askFollowUp = async () => {
       caseType: caseType || '',
       fullName,
       income,
+      state,
+      city,
       reason,
       noticeDate,
       receivedNotice: !!receivedNotice,
@@ -444,28 +483,96 @@ const stepContent = () => {
         </>
       );
 
-    case 3:
-      return (
-        <>
-          <p>Full Name:</p>
-          {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => {
-              setFullName(e.target.value);
-              persist('fullName', e.target.value);
-            }}
-            className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
-          />
-          <div style={buttonRowStyle}>
-            <button onClick={back} style={buttonStyle}>Back</button>
-            <button onClick={next} style={buttonStyle}>Next</button>
-          </div>
-        </>
-      );
+   case 3:
+  return (
+    <>
+      <p>Full Name:</p>
+      {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
+      <input
+        type="text"
+        value={fullName}
+        onChange={(e) => {
+          setFullName(e.target.value);
+          persist('fullName', e.target.value);
+        }}
+       className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
+/>
 
-    case 4:
+      <div style={buttonRowStyle}>
+        <button onClick={back} style={buttonStyle}>Back</button>
+        <button onClick={next} style={buttonStyle}>Next</button>
+      </div>
+    </>
+  );
+
+  // CASE 4 - STATE
+case 4:
+  return (
+    <>
+      <p>State:</p>
+      {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
+      <select
+        value={state}
+        onChange={(e) => {
+          setState(e.target.value);
+          persist('state', e.target.value);
+        }}
+        className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
+     >
+        <option value="">Select a state</option>
+        <option value="GA">Georgia</option>
+        <option value="NY">New York</option>
+        <option value="CA">California</option>
+        <option value="TX">Texas</option>
+        <option value="FL">Florida</option>
+        {/* Add more */}
+      </select>
+      <div style={buttonRowStyle}>
+        <button onClick={back} style={buttonStyle}>Back</button>
+        <button onClick={next} style={buttonStyle}>Next</button>
+      </div>
+    </>
+  );
+
+// CASE 5 - CITY
+case 5:
+  return (
+    <>
+      <p>City:</p>
+      {errors[step] && (
+        <p className="text-red-400 dark:text-red-300">{errors[step]}</p>
+      )}
+      <select
+        value={city}
+        onChange={(e) => {
+          setCity(e.target.value);
+          persist('city', e.target.value);
+        }}
+       className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
+      >
+        <option value="">Select a city</option>
+        {cities.length > 0 ? (
+          cities.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))
+        ) : (
+          <option disabled>Select a state first</option>
+        )}
+      </select>
+      <div style={buttonRowStyle}>
+        <button onClick={back} style={buttonStyle}>
+          Back
+        </button>
+        <button onClick={next} style={buttonStyle}>
+          Next
+        </button>
+      </div>
+    </>
+  );
+
+    case 6:
       return (
         <>
           <p>Monthly Income:</p>
@@ -483,7 +590,7 @@ const stepContent = () => {
         </>
       );
 
-    case 5:
+    case 7:
       return (
         <>
           <p>Your Situation:</p>
@@ -503,7 +610,7 @@ const stepContent = () => {
           </div>
         </>
       );
-  case 6:
+  case 8:
         return (
           <>
             <p><strong>Case Type:</strong> {caseType}</p>

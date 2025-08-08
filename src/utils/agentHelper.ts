@@ -10,6 +10,8 @@ type LegalAdviceInput = {
   fullName: string;
   income: string;
   reason: string;
+  state: string,
+  city: string,
   noticeDate?: string;
   receivedNotice?: boolean;
   followUp?: string;
@@ -23,6 +25,8 @@ export const generateLegalAdvice = async (input: LegalAdviceInput) => {
     fullName,
     income,
     reason,
+    state,
+    city,
     noticeDate,
     receivedNotice,
     followUp = '',
@@ -31,7 +35,7 @@ export const generateLegalAdvice = async (input: LegalAdviceInput) => {
   } = input;
 
   const context = `
-You are an AI legal assistant generating Georgia-specific legal help.
+You are an AI legal assistant generating legal help for a user located in ${city}, ${state}.
 
 Depending on the request type, respond accordingly:
 
@@ -39,7 +43,7 @@ Depending on the request type, respond accordingly:
   1. Heading with court name, county, parties, and case type
   2. Title of the document (e.g., RESPONSE TO PLAINTIFF'S MOTION TO DISMISS)
   3. Introduction paragraph
-  4. Numbered legal arguments with citations to Georgia law (OCGA)
+  4. Numbered legal arguments with citations to ${state}-specific laws (${state === 'GA' ? 'OCGA' : state === 'NY' ? 'CPLR' : state === 'CA' ? 'California Civil Code' : 'relevant state laws'})
   5. Conclusion with prayer for relief
   6. Respectfully submitted line
   7. Signature block for the pro se litigant
@@ -48,10 +52,11 @@ Depending on the request type, respond accordingly:
 
 - For arbitration assistance, draft an arbitration statement citing relevant rules and legal theory.
 
-- For award estimation, analyze the case context and predict potential monetary outcomes based on Georgia precedent.
+- For award estimation, analyze the case context and predict potential monetary outcomes based on ${state} precedent.
 
-Otherwise, provide general legal guidance and ask a helpful follow-up.
+Otherwise, provide general legal guidance and ask a helpful follow-up. Reference local laws in ${city} and ${state} where applicable.
 `.trim();
+
 
   const caseDetails = `
 Case Type: ${caseType}

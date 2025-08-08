@@ -10,7 +10,14 @@ const ViewDocument = () => {
   useEffect(() => {
     const fetchDocument = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/documents/${id}`);
+        const token = localStorage.getItem('justicepath-token');
+        const res = await fetch(`${API_URL}/api/documents/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        //const res = await fetch(`${API_URL}/api/documents/${id}`);
         if (res.status === 403) throw new Error('Unauthorized');
         const data = await res.json();
         setDocument(data);

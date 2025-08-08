@@ -13,6 +13,7 @@ import LandingPage from './pages/LandingPage';
 import ViewDocument from './pages/ViewDocument';
 import DocumentsDashboard from './pages/DocumentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import ResetPassword from './pages/ResetPassword';
 
 const App: React.FC = () => {
   return (
@@ -54,6 +55,7 @@ const App: React.FC = () => {
         <Route path="/plan-details" element={<PlanDetails />} />
         <Route path="/documents/:id" element={<ViewDocument />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </div>
   );
