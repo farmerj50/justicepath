@@ -12,6 +12,7 @@ import uploadRoutes from './routes/uploadRoutes';
 import stripeRoutes from './routes/stripeRoutes';
 
 const app = express();
+console.log('✅ app.ts loaded');
 
 // Apply CORS middleware FIRST
 app.use(corsMiddleware);
