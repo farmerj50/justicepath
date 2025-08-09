@@ -30,9 +30,44 @@ const DocumentsDashboard = () => {
   const [followUpInput, setFollowUpInput] = useState('');
   const state = localStorage.getItem('state') || '';
   const city = localStorage.getItem('city') || '';
+  const [followUpLoading, setFollowUpLoading] = useState(false);
+
 
   const API_URL = import.meta.env.VITE_API_URL;
   console.log("🔥 API URL:", import.meta.env.VITE_API_URL);
+  // turn arrays or strings into bullets
+const bullets = (v: any): string =>
+  Array.isArray(v) ? v.map((x) => `- ${x}`).join('\n') : String(v || '');
+
+// handle objects like { Next Steps: [...], Motions/Filings: [...], Deadlines: '...' }
+const bulletsFromObject = (obj: Record<string, any>): string =>
+  Object.entries(obj || {})
+    .map(([k, v]) => `*${k}*\n${bullets(v)}`)
+    .join('\n\n');
+
+// build a single text block from the structured JSON
+const buildFollowUpBlock = (q: string, data: any) => {
+  const { analysis = '', strategy = [], defenses = [], citations = [], clarify = [] } = data || {};
+
+  const strategyText = Array.isArray(strategy)
+    ? bullets(strategy)
+    : bulletsFromObject(strategy); // <-- handles the [object Object] case
+
+  const analysisText =
+    typeof analysis === 'string'
+      ? analysis
+      : bulletsFromObject(analysis);
+
+  return (
+    `\n\nQ: ${q}\nA (Attorney analysis):\n\n` +
+    `**Analysis**\n${analysisText}\n\n` +
+    `**Strategy / Next steps**\n${strategyText}\n\n` +
+    `**Defenses**\n${bullets(defenses)}\n\n` +
+    `**Citations**\n${bullets(citations)}\n\n` +
+    `**Clarify**\n${bullets(clarify)}\n`
+  );
+};
+
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -72,44 +107,72 @@ const handleDelete = async (id: string, type?: string) => {
   }
 };
 
-  const handleFollowUp = async () => {
-    if (!followUpInput.trim()) return;
+ const handleFollowUp = async () => {
+  
+  if (!followUpInput.trim()) return;
 
-    try {
-      const res = await fetch(`${API_URL}/api/ai/analyze-document`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: aiResponse + `\n\nUser added: ${followUpInput}`,
-          documentType: documentType || 'document',
-        }),
-      });
+  setFollowUpLoading(true); // ⏳ show spinner
 
-      const text = await res.text();
+  try {
+    const res = await fetch(`${API_URL}/api/ai/follow-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        previousAnswer: aiResponse,
+        question: followUpInput,
+        documentType: documentType || docTypeParam || '',
+        state,
+        city,
+      }),
+    });
 
-      if (!res.ok) {
-        console.error('❌ Server returned an error:', res.status, text);
-        return;
-      }
+    const data = await res.json();
 
-      try {
-        const data = JSON.parse(text);
-        console.log('✅ Follow-up result:', data);
-
-        if (data?.main) {
-          setAiResponse((prev) => prev + '\n\n' + data.main);
-          setFollowUpInput('');
-        } else {
-          console.warn('⚠️ No "main" field in AI response:', data);
-        }
-      } catch (parseErr) {
-        console.error('❌ JSON parsing error:', parseErr);
-        console.warn('⚠️ Raw response text:', text);
-      }
-    } catch (err) {
-      console.error('❌ Network error during follow-up:', err);
+    if (!res.ok || data.error) {
+      console.error('❌ Follow-up failed:', data);
+      alert(data?.error || 'Follow-up failed.');
+      return;
     }
-  };
+
+    const { analysis = '', strategy = [], defenses = [], citations = [], clarify = [] } = data || {};
+    const toBullets = (v: any) =>
+      Array.isArray(v) ? v.map((x) => `- ${x}`).join('\n') : String(v || '');
+
+    const block =
+`\n\nQ: ${followUpInput}
+A (Attorney analysis):
+
+**Analysis**
+${typeof analysis === 'string'
+  ? analysis
+  : Object.entries(analysis).map(([k, v]) => `- ${k}: ${String(v)}`).join('\n')}
+
+**Strategy / Next steps**
+${toBullets(strategy)}
+
+**Defenses**
+${toBullets(defenses)}
+
+**Citations**
+${toBullets(citations)}
+
+**Clarify**
+${toBullets(clarify)}
+`;
+   setAiResponse(prev => {
+  const addition = buildFollowUpBlock(followUpInput, data);
+  return prev?.includes(addition.trim()) ? prev : (prev || '') + addition;
+});
+
+    setFollowUpInput('');
+  } catch (err) {
+    console.error('❌ Network error during follow-up:', err);
+    alert('Network error during follow-up.');
+  } finally {
+    setFollowUpLoading(false); // ✅ always hide spinner
+  }
+};
+
 
   useEffect(() => {
     const runAgent = async () => {
@@ -484,7 +547,20 @@ const filteredDocs =
     {aiResponse ? (
       <div className="bg-gray-800 text-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4 text-yellow-400">AI Response</h2>
-        <pre className="whitespace-pre-wrap text-sm">{aiResponse}</pre>
+        <div className="text-sm whitespace-pre-wrap leading-relaxed">
+  {aiResponse.split('\n').map((line, i) => {
+    const isQuestion = line.trim().startsWith('Q:');
+    return (
+      <div
+        key={i}
+        className={isQuestion ? 'text-yellow-300 font-medium' : ''}
+      >
+        {line}
+      </div>
+    );
+  })}
+</div>
+
         {suggestion && (
           <div className="mt-4 p-4 bg-gray-700 rounded text-sm text-gray-300 border-t border-gray-600">
             <strong className="text-yellow-400">💡 Follow-up:</strong> {suggestion}
@@ -504,18 +580,39 @@ const filteredDocs =
                 placeholder="e.g. Include a reference to OCGA § 44-7-7"
               />
               <button
-                onClick={() => setShowModal(true)}
-                className="text-white px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded"
-                title="Attach a document"
-              >
-                ➕
-              </button>
-              <button
-                onClick={handleFollowUp}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                Send
-              </button>
+  onClick={handleFollowUp}
+  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center justify-center"
+  disabled={followUpLoading}
+>
+  {followUpLoading ? (
+    <>
+      <svg
+        className="animate-spin h-4 w-4 mr-2 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v8z"
+        />
+      </svg>
+      Sending...
+    </>
+  ) : (
+    'Send'
+  )}
+</button>
+
             </div>
           </div>
         )}

@@ -2,6 +2,8 @@ import { Request, Response, Router } from 'express';
 import { saveAiGeneratedDocument } from '../utils/aiDocumentHelper';
 import { PrismaClient } from '@prisma/client';
 import { runLegalAgent } from '../utils/openaiHelper';
+import OpenAI from 'openai';
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY as string });
 
 
 const prisma = new PrismaClient();
@@ -138,8 +140,63 @@ router.post('/analyze-document', async (req: Request, res: Response): Promise<vo
   }
 });
 
+// POST /api/ai/follow-up
 
+router.post('/follow-up', async (req, res) => {
+  try {
+    const {
+      previousAnswer = '',
+      question,
+      documentType = '',
+      state = '',
+      city = '',
+    } = req.body;
 
+    if (!question || typeof question !== 'string') {
+      return res.status(400).json({ error: 'Question is required.' });
+    }
 
+    const system =
+`You are a zealous, detail-oriented **landlord–tenant attorney**.
+Write precise, actionable guidance with short paragraphs and bullet points.
+Tailor analysis to the user's jurisdiction when given.
+**Do not repeat** content already covered unless you must to build a legal argument.
+Prefer statutes and deadlines; include simple citations (statute names/sections, no links).`;
+
+    // Force expansion: require NEW points vs previousAnswer
+    const userMsg =
+`Jurisdiction: ${city ? city + ', ' : ''}${state || 'Unknown'}
+Matter type: ${documentType || 'General'}
+Previous answer (for context; avoid repeating):\n${previousAnswer || '(none)'}
+Follow-up question (expand depth; add NEW analysis not already said): ${question}
+
+Return JSON with keys:
+- "analysis": expanded legal analysis using IRAC where relevant (Issue, Rule with cites, Application, Conclusion).
+- "strategy": concrete next steps, motions/filings, deadlines, and evidence to gather.
+- "defenses": likely defenses/counterarguments relevant to the facts and jurisdiction.
+- "citations": short list of statutes/rules (e.g., "Fla. Stat. § 83.56(2)").
+- "clarify": 3–5 targeted questions to close factual gaps.`;
+
+    const resp = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.2,              // tighter, more legalistic
+      top_p: 0.9,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userMsg },
+      ],
+      response_format: { type: 'json_object' }, // force structured output
+    });
+
+    const payload = resp.choices?.[0]?.message?.content?.trim();
+    if (!payload) return res.status(500).json({ error: 'Empty answer' });
+
+    // Already JSON because of response_format
+    return res.json(JSON.parse(payload));
+  } catch (e) {
+    console.error('follow-up error:', e);
+    return res.status(500).json({ error: 'Failed to generate follow-up.' });
+  }
+});
 
 export default router;
