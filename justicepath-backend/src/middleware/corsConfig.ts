@@ -1,40 +1,40 @@
+// src/middleware/corsConfig.ts
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const devOrigins = ['http://localhost:5173'];
+const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 
-/**
- * Determines whether the incoming origin is allowed.
- * In production, allows any origin starting with 'https://justicepath-production'.
- * In development, only allows explicitly whitelisted dev origins.
- */
-const allowedOrigins = (origin: string | undefined): boolean => {
-  if (!origin) return true; // allow non-browser requests (like Postman)
-  
-  if (process.env.NODE_ENV !== 'production') {
-    return devOrigins.includes(origin);
-  }
+// Base name of your Railway frontend WITHOUT the suffix
+// e.g. justicepath-production -> will allow justicepath-production-xxxx.up.railway.app
+const FRONTEND_BASE = process.env.FRONTEND_BASE || 'justicepath-production';
+const PROD_REGEX = new RegExp(
+  `^https://${FRONTEND_BASE}(-[a-z0-9]+)?\\.up\\.railway\\.app$`
+);
 
-  return origin.startsWith('https://justicepath-production');
-};
+// Optional extra prod origins (comma-separated): e.g. FRONTEND_URL=https://app.justicepath.com,https://www.justicepath.com
+const EXTRA_ORIGINS =
+  (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
 const corsOptions: CorsOptions = {
-  origin: (origin, cb) => {
-    console.log('🌍 Incoming request from origin:', origin);
+  origin(origin, cb) {
+    // allow non-browser (curl/Postman) where Origin is undefined
+    if (!origin) return cb(null, true);
 
-    if (allowedOrigins(origin)) {
-      console.log('✅ CORS allowed');
-      cb(null, true);
-    } else {
-      console.warn('❌ Blocked by CORS:', origin);
-      cb(new Error(`Not allowed by CORS: ${origin}`));
-    }
+    const isDev = process.env.NODE_ENV !== 'production';
+    const ok = isDev
+      ? DEV_ORIGINS.includes(origin)
+      : PROD_REGEX.test(origin) || EXTRA_ORIGINS.includes(origin);
+
+    if (ok) return cb(null, true);
+    return cb(new Error(`Not allowed by CORS: ${origin}`));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 204,
 };
 
