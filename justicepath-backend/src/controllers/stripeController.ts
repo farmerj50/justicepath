@@ -21,8 +21,8 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.CLIENT_URL}/login?payment=success`,
-      cancel_url: `${process.env.CLIENT_URL}/select-plan?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_ORIGIN}/login?payment=success`,
+      cancel_url: `${process.env.FRONTEND_ORIGIN}/select-plan?payment=cancelled`,
     });
 
     res.json({ sessionId: session.id });
