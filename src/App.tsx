@@ -1,3 +1,7 @@
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import CaseTypeSelection from './pages/CaseTypeSelection';
