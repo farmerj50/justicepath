@@ -76,17 +76,35 @@ if (!user) return null;
 
   
 const formatCurrency = (value: string) => {
-  const numericValue = value.replace(/\D/g, ''); // Remove non-digit characters
-  const number = parseFloat(numericValue);
+  if (!value) return '';
+
+  const number = parseFloat(value);
   if (isNaN(number)) return '';
-  return `$${number.toLocaleString()}`;
+
+  // ✅ Keep up to 2 decimals, format with commas
+  return `$${number.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
+
 const handleIncomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const rawValue = e.target.value.replace(/\D/g, '');
+  let rawValue = e.target.value;
+
+  // ✅ Allow digits and at most one decimal point
+  rawValue = rawValue.replace(/[^0-9.]/g, '');
+
+  // ✅ Prevent multiple decimals
+  const parts = rawValue.split('.');
+  if (parts.length > 2) {
+    rawValue = parts[0] + '.' + parts.slice(1).join('');
+  }
+
   setIncome(rawValue);
   persist('income', rawValue);
 };
+
 
 
 
@@ -578,11 +596,13 @@ case 5:
           <p>Monthly Income:</p>
           {errors[step] && <p className="text-red-400 dark:text-red-300">{errors[step]}</p>}
           <input
-            type="text"
-            value={formatCurrency(income)}
-            onChange={handleIncomeChange}
-            className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
-          />
+  type="text"
+  value={income}
+  onChange={handleIncomeChange}
+  onBlur={(e) => setIncome(parseFloat(e.target.value).toString())} // normalize when leaving
+  className="w-full p-3 rounded-full border border-gray-500 shadow-md text-white dark:text-white bg-gray-800 dark:bg-gray-700 focus:outline-none text-center"
+/>
+
           <div style={buttonRowStyle}>
             <button onClick={back} style={buttonStyle}>Back</button>
             <button onClick={next} style={buttonStyle}>Next</button>

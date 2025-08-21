@@ -1,5 +1,6 @@
 import express from 'express';
 import corsMiddleware from './middleware/corsConfig';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
 
@@ -22,6 +23,7 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 // CORS first
 app.use(corsMiddleware);
+app.use(cookieParser());
 
 // JSON parser (multer handles multipart on the upload route)
 app.use(express.json());

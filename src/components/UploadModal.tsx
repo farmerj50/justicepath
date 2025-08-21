@@ -10,48 +10,66 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onFileUpload }) => {
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    setError(null);
-    setIsUploading(true);
+  setError(null);
+  setIsUploading(true);
 
-    try {
-      // Optional callback for parent-side behavior
-      if (onFileUpload) {
-        await onFileUpload(file);
-      }
-
-      // Direct upload to backend
-      const fd = new FormData();
-      fd.append('file', file); // must match upload.single('file') on backend
-
-      const token = localStorage.getItem('justicepath-token'); // adjust if stored differently
-
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/documents/upload`, {
-        method: 'POST',
-        body: fd, // DO NOT set Content-Type; the browser handles it
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `Upload failed: ${res.status} ${res.statusText}`);
-      }
-
-      // Optionally consume response
-      // const data = await res.json();
-      // console.log('Uploaded:', data);
-
-      onClose(); // close modal on success
-    } catch (err: any) {
-      setError(err?.message || 'Upload failed');
-    } finally {
-      setIsUploading(false);
-      // reset input so selecting the same file again re-triggers change
-      if (e.target) e.target.value = '';
+  try {
+    // If parent provided an uploader, use it so it can set preview/refresh.
+    if (onFileUpload) {
+      await onFileUpload(file);   // ⬅️ this will set previewFile, refresh list, etc.
+      onClose();
+      return;                     // ⬅️ IMPORTANT: do not also do internal upload
     }
-  };
+
+    // Fallback: do internal upload w/ refresh-and-retry
+    const API_URL = import.meta.env.VITE_API_URL;
+
+    const uploadWithRefresh = async (formData: FormData) => {
+      const tryUpload = () => {
+        const token = localStorage.getItem('justicepath-token') || '';
+        return fetch(`${API_URL}/api/documents/upload`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData, // do NOT set Content-Type manually
+        });
+      };
+
+      let res = await tryUpload();
+
+      if (res.status === 401) {
+        const r = await fetch(`${API_URL}/api/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include', // send jp_rt cookie
+        });
+        if (r.ok) {
+          const { token } = await r.json();
+          if (token) localStorage.setItem('justicepath-token', token);
+          res = await tryUpload();
+        }
+      }
+      return res;
+    };
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    const res = await uploadWithRefresh(fd);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || `Upload failed: ${res.status} ${res.statusText}`);
+    }
+
+    onClose(); // internal path: just close; dashboard won't auto-preview
+  } catch (err: any) {
+    setError(err?.message || 'Upload failed');
+  } finally {
+    setIsUploading(false);
+    if (e.target) e.target.value = '';
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
