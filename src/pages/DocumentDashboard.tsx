@@ -572,18 +572,31 @@ const filteredDocs =
               Ask follow-up or add details to improve this response:
             </label>
             <div className="flex gap-2 items-center">
-              <input
-                type="text"
-                value={followUpInput}
-                onChange={(e) => setFollowUpInput(e.target.value)}
-                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white text-sm"
-                placeholder="e.g. Include a reference to OCGA § 44-7-7"
-              />
-              <button
-  onClick={handleFollowUp}
-  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center justify-center"
-  disabled={followUpLoading}
->
+  <input
+    type="text"
+    value={followUpInput}
+    onChange={(e) => setFollowUpInput(e.target.value)}
+    className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white text-sm"
+    placeholder="e.g. Include a reference to OCGA § 44-7-7"
+  />
+
+  {/* 👇 Upload button */}
+  <button
+    type="button"
+    onClick={() => setShowModal(true)}
+    className="w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg flex items-center justify-center"
+    title="Upload a document"
+    aria-label="Upload a document"
+  >
+    +
+  </button>
+
+  <button
+    onClick={handleFollowUp}
+    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center justify-center"
+    disabled={followUpLoading}
+  >
+
   {followUpLoading ? (
     <>
       <svg
