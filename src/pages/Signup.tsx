@@ -16,6 +16,9 @@ const Signup: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+  const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^])[A-Za-z\d@$!%*?&#^]{8,}$/;
+
 
   setError('');
   setSuccess('');
@@ -30,10 +33,13 @@ const Signup: React.FC = () => {
     return;
   }
 
-  if (password.length < 6) {
-    setError('Password must be at least 6 characters.');
-    return;
-  }
+  if (!passwordRegex.test(password)) {
+  setError(
+    'Password must be at least 8 characters, include uppercase, lowercase, a number, and a special character.'
+  );
+  return;
+}
+
 
   if (password !== confirmPassword) {
     setError('Passwords do not match.');
