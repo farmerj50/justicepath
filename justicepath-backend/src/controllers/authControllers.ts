@@ -6,6 +6,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
+//type Role = Prisma.Role;
+//const testRole: Role = 'USER' as Role; // should type-check
+
 
 /* ---------- SECURITY CONSTANTS ---------- */
 const PASSWORD_REGEX =
