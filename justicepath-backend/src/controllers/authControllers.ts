@@ -1,12 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient, $Enums  } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import { hashPassword, comparePassword } from '../utils/hash';
 import { generateToken } from '../utils/jwt';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
-type Role = $Enums.Role;
+//type Role = Prisma.Role;
+//const testRole: Role = 'USER' as Role; // should type-check
+
 
 /* ---------- SECURITY CONSTANTS ---------- */
 const PASSWORD_REGEX =
