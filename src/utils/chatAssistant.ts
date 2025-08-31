@@ -11,6 +11,7 @@ export const getAIChatResponse = async (message: string): Promise<string> => {
     });
 
     const data = await response.json();
+    console.log(data);
 
     if (!data || typeof data.answer !== 'string') {
       console.warn('Unexpected OpenAI response format:', data);
