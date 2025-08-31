@@ -12,8 +12,7 @@ html, body {
   font-family: 'Inter', sans-serif;
   margin: 0;
   padding: 0;
-  background-color: white;
-  color: black;
+  
 }
 
 html.dark body {
@@ -270,6 +269,16 @@ button:disabled {
     animation: ripple 1.5s ease-out infinite;
   }
 }
+/* Inside the card, force readable text */
+.form-card { color: #e5e7eb; }
+.form-card p, .form-card label { color: #e5e7eb !important; opacity: 1 !important; }
+.form-card input, .form-card select, .form-card textarea {
+  background: #1f2937;          /* gray-800 */
+  color: #fff;
+  border: 1px solid #4b5563;    /* gray-600 */
+}
+.form-card ::placeholder { color: #9ca3af; opacity: 1; }
+
 
 
 

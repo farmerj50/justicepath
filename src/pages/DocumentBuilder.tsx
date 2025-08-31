@@ -387,69 +387,61 @@ const askFollowUp = async () => {
 const stepContent = () => {
   switch (step) {
     case 1:
-      return (
-        <>
-          {caseType === 'Eviction' && (
-            <p className="text-black dark:text-white">Have you received a notice of eviction?</p>
-          )}
-          {caseType === 'Small Claims' && (
-            <p className="text-black dark:text-white">What is the issue you're bringing to small claims court?</p>
-          )}
-          {caseType === 'Family Law' && (
-            <p className="text-black dark:text-white">What family law issue are you dealing with? (e.g., divorce, custody)</p>
-          )}
+  return (
+    <>
+      {caseType === 'Eviction' && (
+        <p className="!text-slate-200 !opacity-100">Have you received a notice of eviction?</p>
+      )}
+      {caseType === 'Small Claims' && (
+        <p className="!text-slate-200 !opacity-100">
+          What is the issue you're bringing to small claims court?
+        </p>
+      )}
+      {caseType === 'Family Law' && (
+        <p className="!text-slate-200 !opacity-100">
+          What family law issue are you dealing with? (e.g., divorce, custody)
+        </p>
+      )}
 
-          {errors[step] && (
-            <p className="text-red-400 dark:text-red-300">{errors[step]}</p>
-          )}
+      {errors[step] && <p className="!text-rose-400">{errors[step]}</p>}
 
-          {caseType === 'Eviction' ? (
-            <div className="flex justify-center gap-4 mt-4">
-              <button
-                onClick={() => {
-                  setReceivedNotice(true);
-                  persist('receivedNotice', true);
-                  next();
-                }}
-                className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white dark:bg-yellow-400 dark:hover:bg-yellow-300 dark:text-black transition shadow-md"
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => {
-                  setReceivedNotice(false);
-                  persist('receivedNotice', false);
-                  next();
-                }}
-                className="px-6 py-2 rounded-full bg-gray-500 hover:bg-gray-600 text-white dark:bg-gray-300 dark:hover:bg-gray-400 dark:text-black transition shadow-md"
-              >
-                No
-              </button>
-            </div>
-          ) : (
-            <div>
-              <textarea
-                value={reason}
-                onChange={(e) => {
-                  setReason(e.target.value);
-                  persist('reason', e.target.value);
-                }}
-                className="w-full p-3 rounded-xl border border-gray-500 shadow-md text-black dark:text-white bg-white dark:bg-gray-700 focus:outline-none"
-                rows={4}
-                placeholder="Briefly describe your situation"
-              />
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={next}
-                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      );
+      {caseType === 'Eviction' ? (
+        <div className="flex justify-center gap-4 mt-4">
+          <button
+            onClick={() => { setReceivedNotice(true); persist('receivedNotice', true); next(); }}
+            className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white transition shadow-md"
+          >
+            Yes
+          </button>
+          <button
+            onClick={() => { setReceivedNotice(false); persist('receivedNotice', false); next(); }}
+            className="px-6 py-2 rounded-full bg-gray-600 hover:bg-gray-500 text-white transition shadow-md"
+          >
+            No
+          </button>
+        </div>
+      ) : (
+        <div>
+          <textarea
+            value={reason}
+            onChange={(e) => { setReason(e.target.value); persist('reason', e.target.value); }}
+            rows={4}
+            className="w-full p-3 rounded-xl border border-gray-600 shadow-md bg-gray-800 text-white placeholder-slate-400 focus:outline-none focus:ring focus:ring-indigo-500/40"
+            placeholder="Briefly describe your situation"
+          />
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={next}
+              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
 
     case 2:
       const getDateLabel = () => {
@@ -737,7 +729,8 @@ case 5:
   <>
     <Navbar />
     <div style={{ backgroundColor: '#000', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: '#111827', padding: '2rem', borderRadius: '1rem', maxWidth: '500px', color: '#fff', textAlign: 'center' }}>
+      <div style={{ backgroundColor: '#111827', padding: '2rem', borderRadius: '1rem', maxWidth: '500px', color: '#fff', textAlign: 'center' }}
+      className="form-card">
         <h1 style={{ fontSize: '2rem', marginBottom: '2rem' }}>{caseType} Form</h1>
 
         {loading && (
