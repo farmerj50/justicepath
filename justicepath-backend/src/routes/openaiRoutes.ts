@@ -1,26 +1,30 @@
 import express from 'express';
-import { OpenAI } from 'openai';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { roleUsageLimiter } from '../middleware/roleUsageLimiter';
+import { chatWithLimits } from '../services/openaiWrapped';
 
 const router = express.Router();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Apply middleware after auth
+// router.use(authMiddleware);
+router.use(roleUsageLimiter);
 
 router.post('/ask', async (req, res) => {
-  const { question } = req.body;
-
   try {
-    const response = await openai.chat.completions.create({
+    const { question } = req.body;
+
+    const response = await chatWithLimits(req, {
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: question }],
-      model: 'gpt-4', // or 'gpt-3.5-turbo'
     });
 
-    const answer = response.choices[0].message.content;
+    const answer = response.choices?.[0]?.message?.content ?? '';
     res.json({ answer });
   } catch (error: any) {
-    console.error('OpenAI backend error:', error);
-    res.status(500).json({ error: 'Failed to get response from OpenAI' });
+    console.error('OpenAI error:', error);
+    res.status(error.status || 500).json({
+      error: error.code || 'server_error',
+      message: error.message || 'Unexpected error',
+    });
   }
 });
 

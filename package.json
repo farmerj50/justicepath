@@ -31,6 +31,7 @@
     "country-state-city": "^3.2.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.0",
+    "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.536.0",
     "openai": "^4.100.0",
