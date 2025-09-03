@@ -65,6 +65,7 @@ const ViewDocument: React.FC = () => {
     a.download = `${doc.title || 'document'}.pdf`;
     a.click();
     URL.revokeObjectURL(a.href);
+    console.log(doc);
   };
 
   const handlePrint = () => {
