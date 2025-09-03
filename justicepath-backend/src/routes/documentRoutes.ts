@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import authenticate from '../middleware/authMiddleware';
+
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
 import fs from 'fs';
@@ -81,6 +82,21 @@ router.post('/upload',
   authenticate,               // auth first so we don't save anonymous files
   upload.single('file'),      // frontend must use field name "file"
   async (req: Request, res: Response): Promise<void> => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[upload] ▶', {
+        method: req.method,
+        url: req.originalUrl,
+        hasUser: !!(req as any).user?.id,
+        userId: (req as any).user?.id,
+        hasFile: !!req.file,
+        fileField: req.file?.fieldname,
+        fileName: req.file?.originalname,
+        mimetype: req.file?.mimetype,
+        contentLength: req.headers['content-length'],
+        hasAuthHeader: !!req.headers.authorization,
+        cookieHeader: req.headers.cookie ?? null,
+      });
+    }
     const userId = req.user?.id;
 
     if (!req.file || !userId) { res.status(400).json({ message: 'Missing file or user ID' }); return; }

@@ -1,13 +1,18 @@
 // routes/ai.ts
-import express from 'express';
-import OpenAI from 'openai';
+import express, { Request, Response } from 'express';
+import { roleUsageLimiter } from '../middleware/roleUsageLimiter';
+import { chatWithLimits } from '../services/openaiWrapped';
 
 const router = express.Router();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY as string });
 
-router.post('/follow-up', async (req, res) => {
+// Make sure your auth middleware (that sets req.user) runs before this router,
+// or mount it here above roleUsageLimiter, e.g.:
+// router.use(authMiddleware);
+router.use(roleUsageLimiter);
+
+router.post('/follow-up', async (req: Request, res: Response) => {
   try {
-    const { previousAnswer = '', question, documentType = '', state = '', city = '' } = req.body;
+    const { previousAnswer = '', question, documentType = '', state = '', city = '' } = req.body || {};
     if (!question || typeof question !== 'string') {
       return res.status(400).json({ error: 'Question is required.' });
     }
@@ -23,7 +28,7 @@ Do not repeat the entire prior answer unless necessary.`;
       (state || city) ? `User location: ${city ? city + ', ' : ''}${state}` : '',
     ].filter(Boolean).join('\n\n');
 
-    const resp = await openai.chat.completions.create({
+    const resp = await chatWithLimits(req, {
       model: 'gpt-4o-mini',
       temperature: 0.3,
       messages: [
@@ -34,9 +39,12 @@ Do not repeat the entire prior answer unless necessary.`;
 
     const answer = resp.choices?.[0]?.message?.content?.trim() || 'Sorry, I could not generate an answer.';
     return res.json({ answer });
-  } catch (e:any) {
+  } catch (e: any) {
     console.error('follow-up error:', e);
-    return res.status(500).json({ error: 'Failed to generate follow-up.' });
+    return res.status(e?.status || 500).json({
+      error: e?.code || 'server_error',
+      message: e?.message || 'Failed to generate follow-up.',
+    });
   }
 });
 

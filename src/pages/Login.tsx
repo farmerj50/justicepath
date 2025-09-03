@@ -35,6 +35,7 @@ const Login: React.FC = () => {
 
       localStorage.setItem('justicepath-auth', token);
       localStorage.setItem('justicepath-user', JSON.stringify(user));
+      localStorage.setItem('justicepath-token', token);
 
       const pendingPlan = localStorage.getItem('pending-plan');
 
