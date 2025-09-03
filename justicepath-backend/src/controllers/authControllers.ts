@@ -91,7 +91,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
           httpOnly: true,
           sameSite: 'lax',
           secure: IS_PROD,
-          path: '/api/auth',
+          path: '/',
           maxAge: 30 * 24 * 3600 * 1000,
         });
       } catch (e) {
@@ -150,7 +150,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
           httpOnly: true,
           sameSite: 'lax',
           secure: IS_PROD,   // set to false only if you’re testing over plain http
-          path: '/api/auth', // must match your route mount
+          path: '/', // must match your route mount
           maxAge: 30 * 24 * 3600 * 1000,
         });
       } catch (e) {
@@ -197,7 +197,7 @@ export const refreshSession = async (req: Request, res: Response): Promise<void>
       httpOnly: true,
       sameSite: 'lax',
       secure: IS_PROD,
-      path: '/api/auth',
+      path: '/',
       maxAge: 30 * 24 * 3600 * 1000,
     });
 
