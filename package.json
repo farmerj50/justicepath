@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "cross-env ROLLUP_NO_NATIVE=1 tsc --noEmit",
     "build": "npm run typecheck && cross-env ROLLUP_NO_NATIVE=1 vite build",
-    "start": "serve -s dist -l ${PORT:-8080}",
-    "preinstall": "npm i -g npm@10"
+    "start": "serve -s dist -l ${PORT:-8080}"
+    
   },
   "engines": {
     "node": ">=20",
