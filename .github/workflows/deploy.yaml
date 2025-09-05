@@ -1,0 +1,107 @@
+name: Deploy monorepo to Cloud Run
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      AR_REPO: ${{ vars.AR_REPO }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # -------------------------------
+      # Build & deploy API first
+      # -------------------------------
+      - name: Build & push API image
+        env:
+          IMAGE_API: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE_API" justicepath-backend
+          docker push "$IMAGE_API"
+
+      - name: Deploy API
+        id: deploy_api
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_API }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          flags: --allow-unauthenticated
+
+      # -------------------------------
+      # Build WEB with the correct API URL
+      # If you set vars.FRONTEND_API_URL, we use that.
+      # Otherwise we use the API URL we just deployed.
+      # -------------------------------
+      - name: Decide API base for frontend
+        id: decide_api
+        run: |
+          API_BASE="${{ vars.FRONTEND_API_URL }}"
+          if [ -z "$API_BASE" ]; then
+            API_BASE="${{ steps.deploy_api.outputs.url }}"
+          fi
+          echo "api_base=$API_BASE" >> $GITHUB_OUTPUT
+          echo "Using API base: $API_BASE"
+
+      - name: Build & push WEB image
+        env:
+          IMAGE_WEB: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
+        run: |
+          docker build \
+            --build-arg VITE_API_URL="$VITE_API_URL" \
+            -t "$IMAGE_WEB" justicepath
+          docker push "$IMAGE_WEB"
+
+      - name: Deploy WEB
+        id: deploy_web
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_WEB }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          flags: --allow-unauthenticated
+
+      # After WEB is up, set FRONTEND_ORIGIN on API for CORS/cookies
+      - name: Update API FRONTEND_ORIGIN
+        run: |
+          gcloud run services update ${{ vars.CR_SERVICE_API }} \
+            --region=${{ env.REGION }} \
+            --set-env-vars=FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
+
+      - name: Output URLs
+        run: |
+          echo "API URL: ${{ steps.deploy_api.outputs.url }}"
+          echo "WEB URL: ${{ steps.deploy_web.outputs.url }}"
