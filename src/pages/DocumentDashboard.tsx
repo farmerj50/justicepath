@@ -73,6 +73,7 @@ const buildFollowUpBlock = (q: string, data: any) => {
   const navigate = useNavigate();
   const samplePDF: string = '/sample.pdf';
   const testPdfUrl = samplePDF;
+  console.log(samplePDF);
 
   const { generatedDocument, documentType, fromAI, mimeType } = location.state || {};
   const { user } = useAuth();
