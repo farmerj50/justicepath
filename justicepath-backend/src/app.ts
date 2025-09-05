@@ -15,6 +15,7 @@ import stripeRoutes from './routes/stripeRoutes';
 
 const app = express();
 console.log('✅ app.ts loaded');
+app.set('trust proxy', 1);
 
 // Create uploads dir at boot (needed on Railway)
 const uploadDir = path.resolve(process.cwd(), 'uploads');

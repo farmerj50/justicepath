@@ -51,6 +51,7 @@ const Signup: React.FC = () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName, email, password, role }),
+      credentials: 'include',
     });
 
     const data = await res.json();

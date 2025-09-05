@@ -55,6 +55,7 @@ const Login: React.FC = () => {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
+            credentials: 'include',
             body: JSON.stringify({
               userId: user.id,
               plan: pendingPlan,
@@ -73,6 +74,7 @@ const Login: React.FC = () => {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`,
               },
+              credentials: 'include',
             });
 
             if (planRes.ok) {
