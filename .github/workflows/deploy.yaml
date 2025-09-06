@@ -52,14 +52,22 @@ jobs:
           docker build -t "$IMAGE_API" justicepath-backend
           docker push "$IMAGE_API"
 
-      - name: Deploy API
+            - name: Deploy API
         id: deploy_api
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ vars.CR_SERVICE_API }}
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          # Don't set PORT here (Cloud Run provides it). Avoid reserved names.
+          env_vars: |
+            NODE_ENV=production,
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},
+            DATABASE_URL=${{ secrets.DATABASE_URL }},
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
           flags: --allow-unauthenticated
+
 
       # -------------------------------
       # Build WEB with the correct API URL
