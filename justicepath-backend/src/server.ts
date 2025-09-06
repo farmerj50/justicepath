@@ -1,11 +1,12 @@
+// src/server.ts
 import app from './app';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const PORT = process.env.PORT || '8080';   // Cloud Run will always set this
+// Use the PORT Cloud Run gives us; fall back to 5000 for dev
+const PORT = Number(process.env.PORT) || 5000;
 const HOST = '0.0.0.0';
 
-app.listen(Number(PORT), HOST, () => {
+app.listen(PORT, HOST, () => {
   console.log(`✅ Server is running on http://${HOST}:${PORT}`);
 });
