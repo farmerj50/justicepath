@@ -97,6 +97,7 @@ jobs:
           service: ${{ vars.CR_SERVICE_WEB }}
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          env_vars: |
           flags: --allow-unauthenticated
 
       - name: Update API FRONTEND_ORIGIN
