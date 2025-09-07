@@ -23,6 +23,12 @@ const EXTRA_ORIGINS = (process.env.FRONTEND_URL || '')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+  // --- ADDED: tiny hard allowlist (minimal, non-breaking) ---
+const FORCE_ALLOW = new Set<string>([
+  'https://justicepath-web-qrofchwfea-ue.a.run.app',
+  'https://justicepathlaw.com',
+  'https://www.justicepathlaw.com',
+]);
 
 // Helpers (safe hostname parsing + domain match)
 const hostFrom = (u: string) => {
