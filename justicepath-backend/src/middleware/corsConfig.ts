@@ -23,6 +23,12 @@ const EXTRA_ORIGINS = (process.env.FRONTEND_URL || '')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+
+  // --- NEW: hard safety net for Cloud Run web service name ---
+// Allow exactly your Cloud Run web service host form.
+const CLOUD_RUN_WEB_REGEX =
+  /^https:\/\/justicepath-web-[a-z0-9-]+\.a\.run\.app$/;
+  
   // --- ADDED: tiny hard allowlist (minimal, non-breaking) ---
 const FORCE_ALLOW = new Set<string>([
   'https://justicepath-web-qrofchwfea-ue.a.run.app',
