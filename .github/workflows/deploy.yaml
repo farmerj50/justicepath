@@ -23,8 +23,8 @@ jobs:
       REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
       # 👇 Set these in Repo → Settings → Variables to your actual folders
-      BACKEND_DIR: ${{ vars.BACKEND_DIR }}     # e.g. "justicepath-backend"
-      FRONTEND_DIR: ${{ vars.FRONTEND_DIR }}   # e.g. "app" or "." or "justicepath"
+      BACKEND_DIR: justicepath-backend   # ← your backend folder
+      FRONTEND_DIR: .                    # ← frontend is repo root
 
     steps:
       - name: Checkout
