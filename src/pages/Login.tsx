@@ -11,113 +11,121 @@ const Login: React.FC = () => {
   const { setUser } = useAuth();
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // --- ABSOLUTE API BASE (from Vite) ---
+  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const API_URL = import.meta.env.VITE_API_URL;
 
+    // Fail loudly if the build didn’t get the base
+    if (!API_BASE) {
+      console.error('VITE_API_URL is missing at build time');
+      setError('Service is temporarily misconfigured. Please try again shortly.');
+      return;
+    }
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-        credentials: 'include', 
+        // credentials: 'include', // only if you actually use cookies for auth
       });
 
+      // Be robust to non-JSON error payloads
+      const ct = res.headers.get('content-type') || '';
+      const isJson = ct.includes('application/json');
+
       if (!res.ok) {
-        const err = await res.json();
-        setError(err.message || 'Invalid credentials');
+        const err = isJson ? await res.json() : { message: await res.text() };
+        setError(err?.message || 'Invalid credentials');
         return;
       }
 
-      const { user, token } = await res.json();
+      const { user, token } = isJson ? await res.json() : { user: null, token: '' };
+      if (!token) {
+        setError('Login failed: no token returned');
+        return;
+      }
 
       localStorage.setItem('justicepath-auth', token);
       localStorage.setItem('justicepath-user', JSON.stringify(user));
       localStorage.setItem('justicepath-token', token);
 
+      // ----- Pending plan application flow -----
       const pendingPlan = localStorage.getItem('pending-plan');
-
       if (pendingPlan && user?.id) {
         try {
-          console.log('📤 Sending plan update:', {
-             url: `${API_URL}/api/set-plan`,
-             userId: user.id,
-             plan: pendingPlan,
-             token,
-         });
-
-          const planRes = await fetch(`${API_URL}/api/set-plan`, {
-
+          // Apply plan
+          const planRes = await fetch(`${API_BASE}/api/set-plan`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            credentials: 'include',
-            body: JSON.stringify({
-              userId: user.id,
-              plan: pendingPlan,
-            }),
+            body: JSON.stringify({ userId: user.id, plan: pendingPlan }),
           });
 
           if (planRes.ok) {
-            console.log('✅ Applied pending plan:', pendingPlan);
             localStorage.removeItem('pending-plan');
+            await wait(300);
 
-            await wait (500);
-
-            const profileRes = await fetch(`${API_URL}/api/profile`, {
-
+            // Refresh user profile
+            const profileRes = await fetch(`${API_BASE}/api/profile`, {
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`,
               },
-              credentials: 'include',
             });
 
-            if (planRes.ok) {
-  console.log('✅ Applied pending plan:', pendingPlan);
-  localStorage.removeItem('pending-plan');
+            if (profileRes.ok) {
+              const updatedUser = await profileRes.json();
 
-  // ✅ Manually update user object
-  const updatedUser = { ...user, plan: pendingPlan };
-  localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
-  setUser(updatedUser);
+              // Fallback: ensure plan is set even if profile doesn’t include it
+              if (!updatedUser?.plan) updatedUser.plan = pendingPlan;
 
-  // ✅ Conditional redirects based on role and updated plan
-  if (updatedUser.role === 'ADMIN') {
-    navigate('/admin-dashboard');
-  } else if (!updatedUser.plan) {
-    navigate('/select-plan');
-  } else {
-    navigate('/case-type-selection');
-  }
+              localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
+              setUser(updatedUser);
 
-  return;
-
-
+              if (updatedUser.role === 'ADMIN') {
+                navigate('/admin-dashboard');
+              } else if (!updatedUser.plan) {
+                navigate('/select-plan');
+              } else {
+                navigate('/case-type-selection');
+              }
+              return;
             } else {
-              console.warn('⚠️ Failed to fetch updated user after applying plan.');
-              navigate('/select-plan');
+              // Couldn’t fetch refreshed profile—fallback to plan we just set
+              const updatedUser = { ...user, plan: pendingPlan };
+              localStorage.setItem('justicepath-user', JSON.stringify(updatedUser));
+              setUser(updatedUser);
+
+              if (updatedUser.role === 'ADMIN') {
+                navigate('/admin-dashboard');
+              } else if (!updatedUser.plan) {
+                navigate('/select-plan');
+              } else {
+                navigate('/case-type-selection');
+              }
               return;
             }
           } else {
-            console.warn('⚠️ Failed to apply pending plan.');
+            console.warn('Failed to apply pending plan');
             navigate('/select-plan');
             return;
           }
         } catch (applyErr) {
-          console.error('❌ Error applying pending plan:', applyErr);
+          console.error('Error applying pending plan:', applyErr);
           navigate('/select-plan');
           return;
         }
       }
+      // ----- End pending plan flow -----
 
-      // ✅ Fallback if there's no pendingPlan logic
+      // Normal post-login path
       setUser(user);
-
       if (user.role === 'ADMIN') {
         navigate('/admin-dashboard');
       } else if (!user.plan) {
@@ -125,7 +133,6 @@ const Login: React.FC = () => {
       } else {
         navigate('/case-type-selection');
       }
-
     } catch (err) {
       console.error('Login request failed:', err);
       setError('Something went wrong. Please try again.');

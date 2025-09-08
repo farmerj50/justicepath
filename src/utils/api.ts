@@ -1,13 +1,21 @@
-// src/utils/api.ts
+// Frontend only (Vite). Do NOT import this in the backend.
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
-// Example call:
-export async function login(email: string, password: string) {
-  const res = await fetch(`${BASE}/api/auth/login`, {
+function ensureBase() {
+  if (!BASE) {
+    // Fail loudly in prod if the base is missing.
+    throw new Error('VITE_API_URL missing at build time');
+  }
+}
+
+export async function postJson<T>(path: string, body: unknown, init: RequestInit = {}) {
+  ensureBase();
+  const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    credentials: 'include', // only if you actually use cookies
+    headers: { 'Content-Type': 'application/json', ...(init.headers || {}) },
+    body: JSON.stringify(body),
+    // add credentials: 'include' only if you truly use cookies
+    ...init,
   });
 
   const ct = res.headers.get('content-type') || '';
@@ -15,5 +23,5 @@ export async function login(email: string, password: string) {
     const text = await res.text();
     throw new Error(`Unexpected response: ${res.status} ${text.slice(0,120)}`);
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
