@@ -18,11 +18,13 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
+      # 👇 Set these in Repo → Settings → Variables to your actual folders
+      BACKEND_DIR: ${{ vars.BACKEND_DIR }}     # e.g. "justicepath-backend"
+      FRONTEND_DIR: ${{ vars.FRONTEND_DIR }}   # e.g. "app" or "." or "justicepath"
 
     steps:
       - name: Checkout
@@ -42,14 +44,24 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      # 🔍 Fail fast if monorepo paths are wrong
+      - name: Validate monorepo layout
+        run: |
+          echo "BACKEND_DIR=${BACKEND_DIR}"
+          echo "FRONTEND_DIR=${FRONTEND_DIR}"
+          test -d "$BACKEND_DIR"  || { echo "Missing $BACKEND_DIR"; ls -la; exit 1; }
+          test -d "$FRONTEND_DIR" || { echo "Missing $FRONTEND_DIR"; ls -la; exit 1; }
+          test -f "$BACKEND_DIR/Dockerfile"  || { echo "No Dockerfile in $BACKEND_DIR"; exit 1; }
+          test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
+
       # -------------------------------
-      # Build & deploy API first
+      # Build & deploy API
       # -------------------------------
       - name: Build & push API image
         env:
           IMAGE_API: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
         run: |
-          docker build -t "$IMAGE_API" justicepath-backend
+          docker build -f "$BACKEND_DIR/Dockerfile" -t "$IMAGE_API" "$BACKEND_DIR"
           docker push "$IMAGE_API"
 
       - name: Deploy API
@@ -59,12 +71,15 @@ jobs:
           service: ${{ vars.CR_SERVICE_API }}
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          env_vars_update_strategy: merge
           env_vars: |
             NODE_ENV=production
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
+            FRONTEND_URL=${{ vars.FRONTEND_URL }}
+            FRONTEND_DOMAINS=${{ vars.FRONTEND_DOMAINS }}
           flags: --allow-unauthenticated
 
       # -------------------------------
@@ -87,7 +102,8 @@ jobs:
         run: |
           docker build \
             --build-arg VITE_API_URL="$VITE_API_URL" \
-            -t "$IMAGE_WEB" justicepath
+            -f "$FRONTEND_DIR/Dockerfile" \
+            -t "$IMAGE_WEB" "$FRONTEND_DIR"
           docker push "$IMAGE_WEB"
 
       - name: Deploy WEB
@@ -97,14 +113,14 @@ jobs:
           service: ${{ vars.CR_SERVICE_WEB }}
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
-          env_vars: |
           flags: --allow-unauthenticated
 
+      # ✅ Do not wipe other envs
       - name: Update API FRONTEND_ORIGIN
         run: |
           gcloud run services update ${{ vars.CR_SERVICE_API }} \
             --region=${{ env.REGION }} \
-            --set-env-vars=FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
+            --update-env-vars=FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
 
       - name: Output URLs
         run: |
