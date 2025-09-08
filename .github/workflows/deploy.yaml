@@ -22,9 +22,9 @@ jobs:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
-      # 👇 Set these in Repo → Settings → Variables to your actual folders
-      BACKEND_DIR: justicepath-backend   # ← your backend folder
-      FRONTEND_DIR: .                    # ← frontend is repo root
+      # Monorepo paths
+      BACKEND_DIR: justicepath-backend   # backend folder
+      FRONTEND_DIR: .                    # frontend at repo root
 
     steps:
       - name: Checkout
@@ -44,8 +44,9 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      # 🔍 Fail fast if monorepo paths are wrong
+      # Fail fast if paths are wrong
       - name: Validate monorepo layout
+        shell: bash
         run: |
           echo "BACKEND_DIR=${BACKEND_DIR}"
           echo "FRONTEND_DIR=${FRONTEND_DIR}"
@@ -87,6 +88,7 @@ jobs:
       # -------------------------------
       - name: Decide API base for frontend
         id: decide_api
+        shell: bash
         run: |
           API_BASE="${{ vars.FRONTEND_API_URL }}"
           if [ -z "$API_BASE" ]; then
@@ -94,20 +96,20 @@ jobs:
           fi
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "Using API base: $API_BASE"
-          - name: Inject Vite env file for production
-  run: |
-    echo "VITE_API_URL=${{ steps.decide_api.outputs.api_base }}" > "$FRONTEND_DIR/.env.production"
-    echo "Wrote $FRONTEND_DIR/.env.production:"
-    cat "$FRONTEND_DIR/.env.production"
 
+      - name: Inject Vite env file for production
+        shell: bash
+        run: |
+          set -e
+          echo "VITE_API_URL=${{ steps.decide_api.outputs.api_base }}" > "$FRONTEND_DIR/.env.production"
+          echo "Wrote $FRONTEND_DIR/.env.production:"
+          cat "$FRONTEND_DIR/.env.production"
 
       - name: Build & push WEB image
         env:
           IMAGE_WEB: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
-          VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
         run: |
           docker build \
-            --build-arg VITE_API_URL="$VITE_API_URL" \
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB" "$FRONTEND_DIR"
           docker push "$IMAGE_WEB"
@@ -121,12 +123,16 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           flags: --allow-unauthenticated
 
-      # ✅ Do not wipe other envs
-      - name: Update API FRONTEND_ORIGIN
-        run: |
-          gcloud run services update ${{ vars.CR_SERVICE_API }} \
-            --region=${{ env.REGION }} \
-            --update-env-vars=FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
+      # Patch API with the final frontend URL (no version conflicts)
+      - name: Patch API FRONTEND_ORIGIN
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_API }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          env_vars_update_strategy: merge
+          env_vars: |
+            FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
 
       - name: Output URLs
         run: |
