@@ -94,6 +94,12 @@ jobs:
           fi
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "Using API base: $API_BASE"
+          - name: Inject Vite env file for production
+  run: |
+    echo "VITE_API_URL=${{ steps.decide_api.outputs.api_base }}" > "$FRONTEND_DIR/.env.production"
+    echo "Wrote $FRONTEND_DIR/.env.production:"
+    cat "$FRONTEND_DIR/.env.production"
+
 
       - name: Build & push WEB image
         env:
