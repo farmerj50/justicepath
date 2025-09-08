@@ -90,26 +90,18 @@ jobs:
         id: decide_api
         shell: bash
         run: |
-          API_BASE="${{ vars.FRONTEND_API_URL }}"
-          if [ -z "$API_BASE" ]; then
-            API_BASE="${{ steps.deploy_api.outputs.url }}"
-          fi
+          # Always use the API service URL we just deployed
+          API_BASE="${{ steps.deploy_api.outputs.url }}"
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
-          echo "Using API base: $API_BASE"
-
-      - name: Inject Vite env file for production
-        shell: bash
-        run: |
-          set -e
-          echo "VITE_API_URL=${{ steps.decide_api.outputs.api_base }}" > "$FRONTEND_DIR/.env.production"
-          echo "Wrote $FRONTEND_DIR/.env.production:"
-          cat "$FRONTEND_DIR/.env.production"
+          echo "::notice::Using API base (forced): $API_BASE"
 
       - name: Build & push WEB image
         env:
           IMAGE_WEB: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
         run: |
           docker build \
+            --build-arg VITE_API_URL="$VITE_API_URL" \
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB" "$FRONTEND_DIR"
           docker push "$IMAGE_WEB"
