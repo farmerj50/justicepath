@@ -62,6 +62,7 @@ jobs:
         env:
           IMAGE_API: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
         run: |
+          set -e
           docker build -f "$BACKEND_DIR/Dockerfile" -t "$IMAGE_API" "$BACKEND_DIR"
           docker push "$IMAGE_API"
 
@@ -90,20 +91,34 @@ jobs:
         id: decide_api
         shell: bash
         run: |
-          # Always use the API service URL we just deployed
+          # Always use the API service URL we just deployed (do not read repo vars)
           API_BASE="${{ steps.deploy_api.outputs.url }}"
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "::notice::Using API base (forced): $API_BASE"
 
-      - name: Build & push WEB image
+      - name: Build WEB image (no cache) with VITE_API_URL
         env:
           IMAGE_WEB: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
         run: |
+          set -e
+          echo "Building WEB with VITE_API_URL=$VITE_API_URL"
           docker build \
+            --no-cache --pull \
             --build-arg VITE_API_URL="$VITE_API_URL" \
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB" "$FRONTEND_DIR"
+
+          # Verify the built bundle actually contains the API base
+          docker run --rm -e API_BASE="$VITE_API_URL" "$IMAGE_WEB" sh -lc '
+            set -e
+            ROOT=/app/dist; [ -d "$ROOT" ] || ROOT=/usr/share/nginx/html
+            echo "Searching in $ROOT for: $API_BASE"
+            grep -R --quiet --no-messages "$(echo "$API_BASE" | sed "s|/|\\/|g")" "$ROOT" \
+              || { echo "::error::API base not found in built assets. VITE_API_URL not baked."; exit 1; }
+            echo "::notice::API base found in built assets"
+          '
+
           docker push "$IMAGE_WEB"
 
       - name: Deploy WEB
