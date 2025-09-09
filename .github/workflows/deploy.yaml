@@ -50,3 +50,85 @@ jobs:
         run: |
           echo "BACKEND_DIR=${BACKEND_DIR}"
           echo "FRONTEND_DIR=${FRONTEND_DIR}"
+          test -d "$BACKEND_DIR"  || { echo "Missing $BACKEND_DIR"; ls -la; exit 1; }
+          test -d "$FRONTEND_DIR" || { echo "Missing $FRONTEND_DIR"; ls -la; exit 1; }
+          test -f "$BACKEND_DIR/Dockerfile"  || { echo "No Dockerfile in $BACKEND_DIR"; exit 1; }
+          test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
+
+      # -------------------------------
+      # Build & deploy API
+      # -------------------------------
+      - name: Build & push API image
+        env:
+          IMAGE_API: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+        run: |
+          set -e
+          docker build -f "$BACKEND_DIR/Dockerfile" -t "$IMAGE_API" "$BACKEND_DIR"
+          docker push "$IMAGE_API"
+
+      - name: Deploy API
+        id: deploy_api
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_API }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          env_vars_update_strategy: merge
+          env_vars: |
+            NODE_ENV=production
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            FRONTEND_URL=${{ vars.FRONTEND_URL }}
+            FRONTEND_DOMAINS=${{ vars.FRONTEND_DOMAINS }}
+          flags: --allow-unauthenticated
+
+      # -------------------------------
+      # Build WEB with the correct API URL
+      # -------------------------------
+      - name: Decide API base for frontend
+        id: decide_api
+        shell: bash
+        run: |
+          # Always use the API service URL we just deployed
+          API_BASE="${{ steps.deploy_api.outputs.url }}"
+          echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
+          echo "::notice::Using API base: $API_BASE"
+
+      - name: Build & push WEB image
+        env:
+          IMAGE_WEB: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
+        run: |
+          set -e
+          docker build \
+            --build-arg VITE_API_URL="$VITE_API_URL" \
+            -f "$FRONTEND_DIR/Dockerfile" \
+            -t "$IMAGE_WEB" "$FRONTEND_DIR"
+          docker push "$IMAGE_WEB"
+
+      - name: Deploy WEB
+        id: deploy_web
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_WEB }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          flags: --allow-unauthenticated
+
+      # ✅ Patch API with the final frontend URL, without wiping other env vars
+      - name: Patch API FRONTEND_ORIGIN
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_API }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          env_vars_update_strategy: merge
+          env_vars: |
+            FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
+
+      - name: Output URLs
+        run: |
+          echo "API URL: ${{ steps.deploy_api.outputs.url }}"
+          echo "WEB URL: ${{ steps.deploy_web.outputs.url }}"
