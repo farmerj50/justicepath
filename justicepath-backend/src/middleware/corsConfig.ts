@@ -3,46 +3,68 @@ import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// --- Dev allowlist (unchanged) ---
 const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 
-// --- existing Railway support (kept) ---
+// --- Existing Railway support (kept) ---
 const FRONTEND_BASE = process.env.FRONTEND_BASE || 'justicepath-production';
 const PROD_REGEX = new RegExp(
   `^https://${FRONTEND_BASE}(-[a-z0-9]+)?\\.up\\.railway\\.app$`
 );
 
-// --- NEW: explicit frontend origin (Cloud Run URL) + domain list ---
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || ''; // e.g. https://justicepath-web-xxxx-ue.a.run.app
-const FRONTEND_DOMAINS = (process.env.FRONTEND_DOMAINS || '') // e.g. "justicepathlaw.com,app.justicepathlaw.com"
-  .split(',')
-  .map(s => s.trim().toLowerCase())
-  .filter(Boolean);
+// --- Helpers ---
+const normalize = (s: string) => (s || '').replace(/\/$/, '').toLowerCase();
+const hostFrom = (u: string) => {
+  try { return new URL(u).hostname.toLowerCase(); } catch { return ''; }
+};
+const hostMatchesDomain = (originHost: string, domain: string) =>
+  originHost === domain || originHost.endsWith('.' + domain);
 
-// Optional extra absolute origins (you already had this)
-const EXTRA_ORIGINS = (process.env.FRONTEND_URL || '')
+// --- Single/primary origins ---
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '';
+const FRONTEND_HOST   = hostFrom(FRONTEND_ORIGIN);
+
+// --- CSV domains: accept either bare domains or full URLs; convert to hostnames ---
+const FRONTEND_DOMAINS: string[] = (process.env.FRONTEND_DOMAINS || '')
   .split(',')
   .map(s => s.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map(s => hostFrom(s) || s.toLowerCase());
 
-  // --- NEW: hard safety net for Cloud Run web service name ---
-// Allow exactly your Cloud Run web service host form.
-const CLOUD_RUN_WEB_REGEX =
-  /^https:\/\/justicepath-web-[a-z0-9-]+\.a\.run\.app$/;
+// --- Absolute origins (exact string compare; normalized) ---
+const csv = (v?: string) =>
+  (v || '')
+    .split(',')
+    .map(s => normalize(s.trim()))
+    .filter(Boolean);
 
-  // --- ADDED: tiny hard allowlist (minimal, non-breaking) ---
+// Single values + CSVs we’ll treat as absolute origins:
+const ABSOLUTE_ORIGINS = new Set<string>([
+  ...csv(process.env.FRONTEND_URL),
+  ...csv(process.env.FRONTEND_ORIGIN), // in case someone set multiple
+  ...csv(process.env.CLIENT_ORIGIN),
+  ...csv(process.env.ALLOWED_ORIGINS),
+]);
+
+// Optional JSON array of absolute origins:
+try {
+  const arr = JSON.parse(process.env.CORS_ALLOWLIST_JSON || '[]');
+  if (Array.isArray(arr)) {
+    for (const x of arr) {
+      if (typeof x === 'string' && x.trim()) ABSOLUTE_ORIGINS.add(normalize(x));
+    }
+  }
+} catch { /* ignore */ }
+
+// --- Cloud Run web host safety net (now actually used) ---
+const CLOUD_RUN_WEB_REGEX = /^https:\/\/justicepath-web-[a-z0-9-]+\.a\.run\.app$/i;
+
+// --- Tiny force-allow (normalized) ---
 const FORCE_ALLOW = new Set<string>([
   'https://justicepath-web-qrofchwfea-ue.a.run.app',
   'https://justicepathlaw.com',
   'https://www.justicepathlaw.com',
-]);
-
-// Helpers (safe hostname parsing + domain match)
-const hostFrom = (u: string) => {
-  try { return new URL(u).hostname.toLowerCase(); } catch { return ''; }
-};
-const FRONTEND_HOST = hostFrom(FRONTEND_ORIGIN);
-const hostMatchesDomain = (originHost: string, domain: string) =>
-  originHost === domain || originHost.endsWith('.' + domain);
+].map(normalize));
 
 const corsOptions: CorsOptions = {
   origin(origin, cb) {
@@ -50,29 +72,31 @@ const corsOptions: CorsOptions = {
     if (!origin) return cb(null, true);
 
     const isDev = process.env.NODE_ENV !== 'production';
+    const O = normalize(origin);
+    const oHost = hostFrom(origin);
+
     if (isDev) {
-      if (DEV_ORIGINS.includes(origin)) return cb(null, true);
-      return cb(new Error(`Not allowed by CORS (dev): ${origin}`));
-    }
-    if (FORCE_ALLOW.has(origin)) {
-      return cb(null, true);
+      return DEV_ORIGINS.map(normalize).includes(O)
+        ? cb(null, true)
+        : cb(new Error(`Not allowed by CORS (dev): ${origin}`));
     }
 
-    // --- prod checks (additive, backwards-compatible) ---
-    const oHost = hostFrom(origin);
-    const allowByRailway = PROD_REGEX.test(origin);
+    if (FORCE_ALLOW.has(O)) return cb(null, true);
+
+    const allowByRailway       = PROD_REGEX.test(origin);
+    const allowByCloudRunRegex = CLOUD_RUN_WEB_REGEX.test(origin);
     const allowByExactCloudRun = FRONTEND_HOST && oHost === FRONTEND_HOST;
-    const allowByDomains = FRONTEND_DOMAINS.some(d => hostMatchesDomain(oHost, d));
-    const allowByExtraAbsolute = EXTRA_ORIGINS.includes(origin);
+    const allowByDomains       = !!oHost && FRONTEND_DOMAINS.some(d => hostMatchesDomain(oHost, d));
+    const allowByAbsolute      = ABSOLUTE_ORIGINS.has(O);
 
     const ok =
       allowByRailway ||
+      allowByCloudRunRegex ||
       allowByExactCloudRun ||
       allowByDomains ||
-      allowByExtraAbsolute;
+      allowByAbsolute;
 
-    if (ok) return cb(null, true);
-    return cb(new Error(`Not allowed by CORS: ${origin}`));
+    return ok ? cb(null, true) : cb(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
