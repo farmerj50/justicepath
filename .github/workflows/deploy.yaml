@@ -22,9 +22,8 @@ jobs:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
-      # Monorepo paths
-      BACKEND_DIR: justicepath-backend   # backend folder
-      FRONTEND_DIR: .                    # frontend at repo root
+      BACKEND_DIR: justicepath-backend
+      FRONTEND_DIR: .
 
     steps:
       - name: Checkout
@@ -44,7 +43,6 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      # Fail fast if paths are wrong
       - name: Validate monorepo layout
         shell: bash
         run: |
@@ -56,7 +54,7 @@ jobs:
           test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
 
       # -------------------------------
-      # Build & deploy API
+      # Build & deploy API (baseline CORS from repo var)
       # -------------------------------
       - name: Build & push API image
         env:
@@ -76,12 +74,11 @@ jobs:
           env_vars_update_strategy: merge
           env_vars: |
             NODE_ENV=production
+            CORS_ALLOWLIST_JSON=${{ vars.CORS_ALLOWLIST_JSON }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
-            FRONTEND_URL=${{ vars.FRONTEND_URL }}
-            FRONTEND_DOMAINS=${{ vars.FRONTEND_DOMAINS }}
           flags: --allow-unauthenticated
 
       # -------------------------------
@@ -91,7 +88,6 @@ jobs:
         id: decide_api
         shell: bash
         run: |
-          # Always use the API service URL we just deployed
           API_BASE="${{ steps.deploy_api.outputs.url }}"
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "::notice::Using API base: $API_BASE"
@@ -117,16 +113,35 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           flags: --allow-unauthenticated
 
-      # ✅ Patch API with the final frontend URL, without wiping other env vars
-      - name: Patch API FRONTEND_ORIGIN
+      # -------------------------------
+      # Patch API CORS with the live WEB URL (no legacy FRONTEND_* vars)
+      # -------------------------------
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Build allowlist (domains + live WEB url)
+        id: cors
+        shell: bash
+        run: |
+          set -e
+          WEB_URL="${{ steps.deploy_web.outputs.url }}"
+          ALLOW=$(jq -cn \
+            --arg a https://justicepathlaw.com \
+            --arg b https://www.justicepathlaw.com \
+            --arg c "$WEB_URL" \
+            '[$a,$b,$c]')
+          echo "ALLOW=$ALLOW" >> "$GITHUB_OUTPUT"
+          echo "::notice::CORS_ALLOWLIST_JSON=$ALLOW"
+
+      - name: Patch API CORS_ALLOWLIST_JSON
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ vars.CR_SERVICE_API }}
-          region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          region:  ${{ env.REGION }}
+          image:   ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
           env_vars_update_strategy: merge
           env_vars: |
-            FRONTEND_ORIGIN=${{ steps.deploy_web.outputs.url }}
+            CORS_ALLOWLIST_JSON=${{ steps.cors.outputs.ALLOW }}
 
       - name: Output URLs
         run: |
