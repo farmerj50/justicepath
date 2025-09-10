@@ -27,7 +27,14 @@ app.use(corsMiddleware);
 app.use(cookieParser());
 app.options(/.*/, corsMiddleware);
 
-
+app.use((_, res, next) => {
+  res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+  next();
+});
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 // JSON parser (multer handles multipart on the upload route)
 app.use(express.json());

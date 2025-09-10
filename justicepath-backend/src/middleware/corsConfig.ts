@@ -1,18 +1,12 @@
-// src/middleware/corsConfig.ts
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Dev allowlist
-const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-
-// Helpers
 const normalize = (s: string) => (s || '').replace(/\/+$/, '').toLowerCase();
 const hostFrom = (u: string) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
 const hostMatchesDomain = (originHost: string, domain: string) =>
-  originHost === domain || (!!domain && originHost.endsWith('.' + domain));
+  !!originHost && (originHost === domain || originHost.endsWith('.' + domain));
 
-// Parse allowlist from JSON array env
 function parseAllowlist(raw?: string): string[] {
   if (!raw) return [];
   try {
@@ -22,36 +16,38 @@ function parseAllowlist(raw?: string): string[] {
   return [];
 }
 
-const ABSOLUTE_ORIGINS = new Set<string>(parseAllowlist(process.env.CORS_ALLOWLIST_JSON));
-// optional: also allow subdomains of your main site
+const ABSOLUTE = new Set(parseAllowlist(process.env.CORS_ALLOWLIST_JSON));
+
+// Always accept your base domain + subdomains even if the env var is wrong/missing
 const BASE_DOMAINS = ['justicepathlaw.com'];
 
-// Treat “dev” only if the origin is localhost (don’t hinge on NODE_ENV)
+// Dev convenience (localhost)
 function isDevOrigin(origin: string) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 }
 
 const corsOptions: CorsOptions = {
   origin(origin, cb) {
-    // Non-browser (no Origin) → don’t add CORS, but don’t error either
+    // No Origin header (e.g., curl) -> don’t add CORS but don’t throw
     if (!origin) return cb(null, false);
 
     const O = normalize(origin);
-    const oHost = hostFrom(origin);
+    const host = hostFrom(O);
 
-    // Dev localhost allowed
-    if (isDevOrigin(O)) return cb(null, true);
-
-    // Exact allowlist
-    if (ABSOLUTE_ORIGINS.has(O)) return cb(null, true);
-
-    // Base domain / subdomains
-    if (oHost && BASE_DOMAINS.some(d => hostMatchesDomain(oHost, d))) {
-      return cb(null, true);
+    // Optional runtime debugging: set DEBUG_CORS=1 on the service to print what the container sees
+    if (process.env.DEBUG_CORS === '1') {
+      console.log('[CORS]', {
+        origin, normalized: O, host,
+        absolute: Array.from(ABSOLUTE),
+        base: BASE_DOMAINS
+      });
     }
 
-    // Reject *without* throwing → no 500
-    return cb(null, false);
+    if (isDevOrigin(O)) return cb(null, true);
+    if (ABSOLUTE.has(O)) return cb(null, true);
+    if (host && BASE_DOMAINS.some(d => hostMatchesDomain(host, d))) return cb(null, true);
+
+    return cb(null, false); // signals “Not allowed by CORS”
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -59,5 +55,4 @@ const corsOptions: CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
-const corsMiddleware = cors(corsOptions);
-export default corsMiddleware;
+export default cors(corsOptions);
