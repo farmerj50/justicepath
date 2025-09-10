@@ -25,6 +25,9 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 // CORS first
 app.use(corsMiddleware);
 app.use(cookieParser());
+app.options(/.*/, corsMiddleware);
+
+
 
 // JSON parser (multer handles multipart on the upload route)
 app.use(express.json());
