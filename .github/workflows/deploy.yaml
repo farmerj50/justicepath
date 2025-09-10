@@ -20,8 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      REGION: ${{ vars.GCP_REGION }}
-      AR_REPO: ${{ vars.AR_REPO }}
+      REGION: ${{ vars.GCP_REGION }}          # Cloud Run region (e.g., us-east4)
+      AR_LOCATION: ${{ vars.AR_LOCATION }}    # AR location (us-east1)
+      AR_REPO: ${{ vars.AR_REPO }}            # justicepath
       BACKEND_DIR: justicepath-backend
       FRONTEND_DIR: .
 
@@ -41,7 +42,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+        run: gcloud auth configure-docker ${{ env.AR_LOCATION }}-docker.pkg.dev --quiet
 
       - name: Validate monorepo layout
         shell: bash
@@ -54,11 +55,11 @@ jobs:
           test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
 
       # -------------------------------
-      # Build & deploy API (baseline CORS from repo var)
+      # Build & deploy API
       # -------------------------------
       - name: Build & push API image
         env:
-          IMAGE_API: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          IMAGE_API: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
         run: |
           set -e
           docker build -f "$BACKEND_DIR/Dockerfile" -t "$IMAGE_API" "$BACKEND_DIR"
@@ -70,7 +71,7 @@ jobs:
         with:
           service: ${{ vars.CR_SERVICE_API }}
           region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          image: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
           env_vars_update_strategy: merge
           env_vars: |
             NODE_ENV=production
@@ -94,7 +95,7 @@ jobs:
 
       - name: Build & push WEB image
         env:
-          IMAGE_WEB: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
         run: |
           set -e
@@ -110,11 +111,11 @@ jobs:
         with:
           service: ${{ vars.CR_SERVICE_WEB }}
           region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          image: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           flags: --allow-unauthenticated
 
       # -------------------------------
-      # Patch API CORS with the live WEB URL (no legacy FRONTEND_* vars)
+      # Patch API CORS with the live WEB URL
       # -------------------------------
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -138,7 +139,7 @@ jobs:
         with:
           service: ${{ vars.CR_SERVICE_API }}
           region:  ${{ env.REGION }}
-          image:   ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          image:   ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
           env_vars_update_strategy: merge
           env_vars: |
             CORS_ALLOWLIST_JSON=${{ steps.cors.outputs.ALLOW }}
