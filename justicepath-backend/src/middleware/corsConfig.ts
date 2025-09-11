@@ -38,45 +38,34 @@ const EXTRA_ABSOLUTE = (process.env.FRONTEND_URL || '')
 // --------- CORS options (no throws) ----------
 export const corsOptions: CorsOptions = {
   origin(origin, cb) {
-    // No Origin -> non-browser tools; skip CORS reflect without error
+    // Non-browser tools (no Origin): don't reflect, don't error
     if (!origin) return cb(null, false);
 
-    const O = normalize(origin);
-    const H = hostFrom(O);
+    const O = (origin || '').toLowerCase().replace(/\/+$/, '');
+    const H = (() => { try { return new URL(O).hostname.toLowerCase(); } catch { return ''; } })();
 
-    if (process.env.DEBUG_CORS === '1') {
-      console.log('[CORS-check]', {
-        origin: O, host: H, isDev,
-        envAllow: [...ABSOLUTE], base: BASE_DOMAINS,
-        FRONTEND_HOST, EXTRA_ABSOLUTE
-      });
+    if ((process.env.NODE_ENV ?? 'development') !== 'production') {
+      // dev: always allow localhost (keeps uploads/auth working)
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(O)) return cb(null, true);
+      return cb(null, false);
     }
 
-    // Dev: allow everything (keeps local dev stable)
-    if (isDev) return cb(null, true);
+    // prod allow rules
+    const ABS = new Set<string>(JSON.parse(process.env.CORS_ALLOWLIST_JSON || '[]').map((s:string)=>s.toLowerCase().replace(/\/+$/,'')));
+    const BASE_DOMAINS = ['justicepathlaw.com'];
 
-    // Prod checks (additive)
-    if (ABSOLUTE.has(O)) return cb(null, true);
-    if (EXTRA_ABSOLUTE.includes(O)) return cb(null, true);
-    if (FRONTEND_HOST && H === FRONTEND_HOST) return cb(null, true);
-    if (CLOUD_RUN_REGEX.test(O)) return cb(null, true);
-    if (RAILWAY_REGEX.test(O))   return cb(null, true);
-    if (H && BASE_DOMAINS.some(d => hostMatchesDomain(H, d))) return cb(null, true);
+    if (ABS.has(O)) return cb(null, true);
+    if (/^https:\/\/[a-z0-9-]+\.a\.run\.app$/i.test(O)) return cb(null, true);
+    if (/^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i.test(O)) return cb(null, true);
+    if (H && BASE_DOMAINS.some(d => H === d || H.endsWith('.' + d))) return cb(null, true);
 
     if (process.env.DEBUG_CORS === '1') console.warn('[CORS-deny]', { origin: O });
-    // IMPORTANT: never pass an Error here — that’s what 500s your OPTIONS
-    return cb(null, false);
+    return cb(null, false); // <-- NEVER throw
   },
-
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-
-  // Make preflight always allow bearer/cookie flows & typical AJAX headers
-  allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
-
-  // Let the client read these if needed
-  exposedHeaders: ['Content-Length', 'Content-Disposition'],
-
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Authorization','Content-Type','X-Requested-With'],
+  exposedHeaders: ['Content-Length','Content-Disposition'],
   optionsSuccessStatus: 204,
 };
 
