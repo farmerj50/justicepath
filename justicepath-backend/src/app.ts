@@ -1,7 +1,6 @@
 // app.ts
-
 import express from 'express';
-import corsMiddleware from './middleware/corsConfig';
+import corsMiddleware from './middleware/corsConfig'; // default export = safe wrapper
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
@@ -21,12 +20,14 @@ app.set('trust proxy', 1);
 const uploadDir = path.resolve(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// ---- CORS (single responder) ----
-app.use(corsMiddleware);           // simple requests
+// ---- CORS FIRST ----
+app.use(corsMiddleware);            // simple requests
 app.options(/.*/, corsMiddleware);  // all preflight requests
+
+// Optional preflight log (kept as-is)
 app.use((req, _res, next) => {
   if (req.method === 'OPTIONS') {
-    console.log('[PRELIGHT]', {
+    console.log('[PREFLIGHT]', {
       url: req.url,
       origin: req.headers.origin,
       acrm: req.headers['access-control-request-method'],
@@ -36,7 +37,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Optional: add a single Vary header (safe)
+// One Vary header for caches / CDNs
 app.use((_, res, next) => {
   res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
   next();
