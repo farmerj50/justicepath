@@ -32,10 +32,11 @@ app.use((_, res, next) => {
   next();
 });
 app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  if (req.method === 'OPTIONS') {
+    return corsMiddleware(req, res, () => res.sendStatus(204));
+  }
   next();
 });
-
 // JSON parser (multer handles multipart on the upload route)
 app.use(express.json());
 

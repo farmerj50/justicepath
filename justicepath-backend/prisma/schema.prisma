@@ -7,6 +7,53 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  fullName             String
+  password             String
+  plan                 String?               @default("free")
+  tier                 Tier?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  role                 Role                  @default(USER)
+  aiGeneratedDocuments AiGeneratedDocument[]
+  documents            Document[]
+}
+
+model Document {
+  id                  String               @id @default(cuid())
+  title               String
+  type                String
+  fileUrl             String
+  content             String?
+  name                String?
+  court               String?
+  motionType          String?
+  caseNumber          String?
+  claimants           String?
+  respondents         String?
+  userId              String
+  createdAt           DateTime             @default(now())
+  source              String?              @default("form")
+  status              String?              @default("draft")
+  aiGeneratedDocument AiGeneratedDocument?
+  user                User                 @relation(fields: [userId], references: [id])
+}
+
+model AiGeneratedDocument {
+  id           String   @id @default(cuid())
+  userId       String
+  followUps    Json?
+  aiSuggestion String?
+  source       String?  @default("ai")
+  status       String?  @default("draft")
+  createdAt    DateTime @default(now())
+  documentId   String   @unique
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id])
+}
+
 enum Tier {
   FREE
   PLUS
@@ -21,60 +68,3 @@ enum Role {
   APARTMENT_MANAGER
   ADMIN
 }
-
-model User {
-  id        String                @id @default(cuid())
-  email     String                @unique
-  fullName  String
-  password  String
-  plan      String?               @default("free")
-  tier      Tier?                 
-  role      Role                  @default(USER)
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
-
-  documents            Document[]
-  aiGeneratedDocuments AiGeneratedDocument[]
-}
-
-model Document {
-  id          String   @id @default(cuid())
-  title       String
-  type        String
-  fileUrl     String
-  content     String?
-  name        String?
-  court       String?
-  motionType  String?
-  caseNumber  String?
-  claimants   String?
-  respondents String?
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  createdAt   DateTime @default(now())
-  status    String?  @default("draft")
-  source    String?  @default("form")
-  aiGeneratedDocument AiGeneratedDocument?
-
-}
-
-model AiGeneratedDocument {
-  id           String   @id @default(cuid())
-
-  documentId   String   @unique
-  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-
-  followUps    Json?
-  aiSuggestion String?
-
-  createdAt    DateTime @default(now())
-  status       String?  @default("draft")
-  source       String?  @default("ai")
-}
-
-
-
-

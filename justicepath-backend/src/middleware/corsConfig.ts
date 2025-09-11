@@ -4,8 +4,7 @@ dotenv.config();
 
 const normalize = (s: string) => (s || '').replace(/\/+$/, '').toLowerCase();
 const hostFrom = (u: string) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
-const hostMatchesDomain = (originHost: string, domain: string) =>
-  !!originHost && (originHost === domain || originHost.endsWith('.' + domain));
+const hostMatchesDomain = (h: string, d: string) => !!h && (h === d || h.endsWith('.' + d));
 
 function parseAllowlist(raw?: string): string[] {
   if (!raw) return [];
@@ -17,41 +16,35 @@ function parseAllowlist(raw?: string): string[] {
 }
 
 const ABSOLUTE = new Set(parseAllowlist(process.env.CORS_ALLOWLIST_JSON));
-
-// Always accept your base domain + subdomains even if the env var is wrong/missing
 const BASE_DOMAINS = ['justicepathlaw.com'];
-
-// Dev convenience (localhost)
-function isDevOrigin(origin: string) {
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
-}
+const isDevOrigin = (o: string) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o);
+const isDev = (process.env.NODE_ENV ?? 'development') !== 'production';
 
 const corsOptions: CorsOptions = {
   origin(origin, cb) {
-    // No Origin header (e.g., curl) -> don’t add CORS but don’t throw
+    // No Origin (curl/Postman): skip CORS, don’t error
     if (!origin) return cb(null, false);
 
     const O = normalize(origin);
     const host = hostFrom(O);
 
-    // Optional runtime debugging: set DEBUG_CORS=1 on the service to print what the container sees
     if (process.env.DEBUG_CORS === '1') {
-      console.log('[CORS]', {
-        origin, normalized: O, host,
-        absolute: Array.from(ABSOLUTE),
-        base: BASE_DOMAINS
-      });
+      console.log('[CORS]', { origin, normalized: O, host, isDev, absolute: [...ABSOLUTE], base: BASE_DOMAINS });
     }
+
+    // In dev: never block yourself
+    if (isDev) return cb(null, true);
 
     if (isDevOrigin(O)) return cb(null, true);
     if (ABSOLUTE.has(O)) return cb(null, true);
     if (host && BASE_DOMAINS.some(d => hostMatchesDomain(host, d))) return cb(null, true);
 
-    return cb(null, false); // signals “Not allowed by CORS”
+    // In prod: deny quietly (no throw) so Express won’t 500
+    return cb(null, false);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  // Let cors reflect Access-Control-Request-Headers automatically
   optionsSuccessStatus: 204,
 };
 

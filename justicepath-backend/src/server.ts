@@ -10,3 +10,8 @@ const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`✅ Server is running on http://${HOST}:${PORT}`);
 });
+// server.ts (very top, after you create `app`)
+app.use((req, _res, next) => { console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`); next(); });
+
+// quick probe route
+app.get('/ping', (_req, res) => res.status(200).send('pong'));
