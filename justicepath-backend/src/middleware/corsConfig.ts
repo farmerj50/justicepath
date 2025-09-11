@@ -1,3 +1,4 @@
+// src/middleware/corsConfig.ts
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -42,9 +43,16 @@ const corsOptions: CorsOptions = {
     // In prod: deny quietly (no throw) so Express won’t 500
     return cb(null, false);
   },
+
   credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  // Let cors reflect Access-Control-Request-Headers automatically
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+
+  // 🔑 Make preflight always allow bearer/cookie flows & typical AJAX headers
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
+
+  // (optional) let the client read these if needed (safe defaults)
+  exposedHeaders: ['Content-Length', 'Content-Disposition'],
+
   optionsSuccessStatus: 204,
 };
 
