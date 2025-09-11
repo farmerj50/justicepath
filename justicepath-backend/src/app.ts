@@ -24,6 +24,17 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 // ---- CORS (single responder) ----
 app.use(corsMiddleware);           // simple requests
 app.options(/.*/, corsMiddleware);  // all preflight requests
+app.use((req, _res, next) => {
+  if (req.method === 'OPTIONS') {
+    console.log('[PRELIGHT]', {
+      url: req.url,
+      origin: req.headers.origin,
+      acrm: req.headers['access-control-request-method'],
+      acrh: req.headers['access-control-request-headers'],
+    });
+  }
+  next();
+});
 
 // Optional: add a single Vary header (safe)
 app.use((_, res, next) => {
