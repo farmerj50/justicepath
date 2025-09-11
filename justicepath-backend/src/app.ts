@@ -31,39 +31,57 @@ if (isProd) {
   app.use((req, res, next) => {
     if (req.method !== 'OPTIONS') return next();
 
-    const origin = req.headers.origin as string | undefined;
+    try {
+      const origin = (req.headers.origin || '') as string;
 
-    const normalize = (s: string) => (s || '').toLowerCase().replace(/\/+$/, '');
-    const hostFrom = (u: string) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
-    const O = normalize(origin || '');
-    const host = hostFrom(O);
+      // Defensive helper: never throw
+      const isAllowedOrigin = (o: string): boolean => {
+        try {
+          if (!o) return false;
 
-    let allowed = false;
-    if (!origin) {
-      allowed = false;
-    } else if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(O)) {
-      allowed = true;
-    } else {
-      try {
-        const list = JSON.parse(process.env.CORS_ALLOWLIST_JSON || '[]');
-        if (Array.isArray(list) && list.map((x: string) => normalize(x)).includes(O)) allowed = true;
-      } catch {}
-      if (!allowed && host && (host === 'justicepathlaw.com' || host.endsWith('.justicepathlaw.com'))) {
-        allowed = true;
+          // dev/local always ok if you ever hit this in prod accidentally
+          if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return true;
+
+          // explicit allowlist from env (ignore JSON errors)
+          try {
+            const raw = process.env.CORS_ALLOWLIST_JSON || '[]';
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const norm = (s: string) => s.toLowerCase().replace(/\/+$/, '');
+              const O = norm(o);
+              if (list.some((x: any) => typeof x === 'string' && norm(x) === O)) return true;
+            }
+          } catch {/* ignore */}
+
+          // allow apex + subdomains
+          const u = new URL(o);                 // safe here (wrapped in try/catch)
+          const host = u.hostname.toLowerCase();
+          return host === 'justicepathlaw.com' || host.endsWith('.justicepathlaw.com');
+        } catch {
+          return false; // any parsing issue → not allowed, but no throw
+        }
+      };
+
+      if (!isAllowedOrigin(origin)) {
+        // Don’t emit ACAO for disallowed origins
+        return res.sendStatus(403);
       }
+
+      // Preflight OK → respond with headers and 204
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+
+      const reqHdrs = req.get('Access-Control-Request-Headers');
+      res.setHeader('Access-Control-Allow-Headers', reqHdrs || 'Content-Type, Authorization');
+
+      res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+      return res.sendStatus(204);
+    } catch (e) {
+      // absolutely never 500 on preflight
+      console.error('[CORS preflight] unexpected error:', e);
+      return res.sendStatus(204);
     }
-
-    if (!allowed) return res.sendStatus(403);
-
-    res.setHeader('Access-Control-Allow-Origin', origin!);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-
-    const reqHdrs = req.header('Access-Control-Request-Headers');
-    res.setHeader('Access-Control-Allow-Headers', reqHdrs || 'Content-Type, Authorization');
-
-    res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
-    return res.sendStatus(204);
   });
 }
 
