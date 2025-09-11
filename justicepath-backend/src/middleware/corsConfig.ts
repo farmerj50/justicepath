@@ -4,9 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const normalize = (s: string) => (s || '').replace(/\/+$/, '').toLowerCase();
-const hostFrom = (u: string) => {
-  try { return new URL(u).hostname.toLowerCase(); } catch { return ''; }
-};
+const hostFrom = (u: string) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
 const hostMatchesDomain = (h: string, d: string) => !!h && (h === d || h.endsWith('.' + d));
 
 function parseAllowlist(raw?: string): string[] {
@@ -18,43 +16,62 @@ function parseAllowlist(raw?: string): string[] {
   return [];
 }
 
-// your existing allow rules
-const ABSOLUTE = new Set(parseAllowlist(process.env.CORS_ALLOWLIST_JSON));
-const BASE_DOMAINS = ['justicepathlaw.com'];
-const isDevOrigin = (o: string) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o);
+// --------- Allow rules / envs ----------
+const ABSOLUTE = new Set(parseAllowlist(process.env.CORS_ALLOWLIST_JSON)); // JSON array of absolute origins
+const BASE_DOMAINS = ['justicepathlaw.com'];                                // apex + subdomains always OK in prod
 const isDev = (process.env.NODE_ENV ?? 'development') !== 'production';
 
-// 🔹 Exported so you can import { corsOptions } elsewhere
+// Cloud Run / Railway host patterns (broad but safe)
+const CLOUD_RUN_REGEX = /^https:\/\/[a-z0-9-]+\.a\.run\.app$/i;
+const RAILWAY_REGEX   = /^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i;
+
+// Optional exact Cloud Run frontend origin (if you set it)
+const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || '').trim();
+const FRONTEND_HOST   = FRONTEND_ORIGIN ? hostFrom(FRONTEND_ORIGIN) : '';
+
+// Optional CSV of extra absolute origins (e.g., FRONTEND_URL="https://foo,https://bar")
+const EXTRA_ABSOLUTE = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// --------- CORS options (no throws) ----------
 export const corsOptions: CorsOptions = {
   origin(origin, cb) {
-    // No Origin (curl/Postman): skip CORS, don’t error & don’t reflect
+    // No Origin -> non-browser tools; skip CORS reflect without error
     if (!origin) return cb(null, false);
 
     const O = normalize(origin);
-    const host = hostFrom(O);
+    const H = hostFrom(O);
 
     if (process.env.DEBUG_CORS === '1') {
       console.log('[CORS-check]', {
-        origin, normalized: O, host, isDev,
-        absolute: [...ABSOLUTE], base: BASE_DOMAINS
+        origin: O, host: H, isDev,
+        envAllow: [...ABSOLUTE], base: BASE_DOMAINS,
+        FRONTEND_HOST, EXTRA_ABSOLUTE
       });
     }
 
-    // In dev: never block localhost (keeps uploads & everything working)
+    // Dev: allow everything (keeps local dev stable)
     if (isDev) return cb(null, true);
 
-    if (isDevOrigin(O)) return cb(null, true);
+    // Prod checks (additive)
     if (ABSOLUTE.has(O)) return cb(null, true);
-    if (host && BASE_DOMAINS.some(d => hostMatchesDomain(host, d))) return cb(null, true);
+    if (EXTRA_ABSOLUTE.includes(O)) return cb(null, true);
+    if (FRONTEND_HOST && H === FRONTEND_HOST) return cb(null, true);
+    if (CLOUD_RUN_REGEX.test(O)) return cb(null, true);
+    if (RAILWAY_REGEX.test(O))   return cb(null, true);
+    if (H && BASE_DOMAINS.some(d => hostMatchesDomain(H, d))) return cb(null, true);
 
-    // In prod: deny quietly so Express won't 500
+    if (process.env.DEBUG_CORS === '1') console.warn('[CORS-deny]', { origin: O });
+    // IMPORTANT: never pass an Error here — that’s what 500s your OPTIONS
     return cb(null, false);
   },
 
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
-  // Typical AJAX/auth headers
+  // Make preflight always allow bearer/cookie flows & typical AJAX headers
   allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
 
   // Let the client read these if needed
@@ -63,38 +80,31 @@ export const corsOptions: CorsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// Export the raw cors middleware too (handy for tests or special routes)
+// Raw cors() (no wrapper)
 export const corsMiddleware = cors(corsOptions);
 
 /**
- * safeCors — wraps cors() so:
- *  - a blocked preflight never becomes a 500
- *  - logs when something is denied (DEBUG_CORS=1)
- *  - other blocked requests get a clean 403
+ * safeCors — wraps cors() so a denied/errored preflight NEVER becomes a 500.
+ * - OPTIONS: returns 204 even if origin is denied (browser sees clean preflight)
+ * - non-OPTIONS: returns 403 when denied (clear signal without crashing)
  */
 export const safeCors: RequestHandler = (req, res, next) => {
   corsMiddleware(req, res, (err?: any) => {
     if (!err) return next();
 
     const origin = req.get('Origin') || '';
-    if (process.env.DEBUG_CORS === '1' || process.env.NODE_ENV !== 'production') {
-      console.error('[CORS blocked]', {
-        origin,
-        method: req.method,
-        path: req.originalUrl,
-        error: err?.message || String(err)
-      });
-    }
+    console.error('[CORS blocked]', {
+      origin, method: req.method, path: req.originalUrl,
+      error: err?.message || String(err)
+    });
 
-    // never 500 a preflight
     if (req.method === 'OPTIONS') {
       res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
       return res.sendStatus(204);
     }
-
     return res.status(403).send('CORS blocked');
   });
 };
 
-// Default export = safe wrapper
+// Default export = safe wrapper (so your existing import keeps working)
 export default safeCors;
