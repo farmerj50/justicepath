@@ -28,6 +28,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.15.21",
+    "@types/nodemailer": "^6.4.19",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
@@ -43,6 +44,7 @@
     "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "nodemailer": "^6.10.1",
     "openai": "^5.12.2",
     "pdf-parse": "^1.1.1",
     "prisma": "^6.8.2",
