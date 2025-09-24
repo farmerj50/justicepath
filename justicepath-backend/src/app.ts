@@ -58,4 +58,5 @@ app.use('/api/payment', stripeRoutes);
 // Static
 app.use('/uploads', express.static(uploadDir));
 
+
 export default app;

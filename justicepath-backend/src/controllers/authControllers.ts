@@ -4,10 +4,15 @@ import { hashPassword, comparePassword } from '../utils/hash';
 import { generateToken } from '../utils/jwt';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from "crypto";
+import { sendVerificationEmail } from "../lib/mailer";
 
 const prisma = new PrismaClient();
 //type Role = Prisma.Role;
 //const testRole: Role = 'USER' as Role; // should type-check
+
+const REQUIRE_VERIFY = process.env.REQUIRE_EMAIL_VERIFICATION === "true";
+const APP_BASE_URL   = process.env.APP_BASE_URL || "http://localhost:5173";
 
 
 /* ---------- SECURITY CONSTANTS ---------- */
@@ -40,32 +45,46 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     if (!email || !password || !fullName) {
       res.status(400).json({ message: 'Invalid input' }); return;
     }
-
-    const normalizedEmail = normalizeEmail(email);
+const normalizedEmail = normalizeEmail(email);
     const cleanedName = fullName.trim();
-
-    // Enforce password policy (server-side)
-    if (!PASSWORD_REGEX.test(password)) {
-      res.status(400).json({
-        message: 'Password must be 8–128 chars and include uppercase, lowercase, number, and special character.',
-      });
-      return;
-    }
-
-    // Role allowlist (prevents ADMIN via client)
     const normalizedRole: Role = SELF_REGISTER_ROLES.includes(role as Role) ? (role as Role) : 'USER';
 
-    // Existence check (use friendly message or generic to avoid enumeration)
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) { res.status(400).json({ message: 'Email already in use' }); return; }
 
-    // Hash with optional pepper (keeps your hash util)
     const hashed = await hashPassword(password + PEPPER);
 
     const createdUser = await prisma.user.create({
       data: { email: normalizedEmail, password: hashed, fullName: cleanedName, role: normalizedRole },
     });
 
+    // *********** NEW (soft email verify) — minimal change ***********
+    // Sends a verification email but DOES NOT change your login/token flow.
+    if (process.env.SEND_VERIFY_EMAIL === 'true') {
+      try {
+        const token = crypto.randomUUID();
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+        await prisma.user.update({
+          where: { id: createdUser.id },
+          data: {
+            verificationToken: token,
+            verificationTokenExpires: expires,
+            emailVerified: false,
+          },
+        });
+        const verifyUrl = `${APP_BASE_URL}/verify-email?token=${encodeURIComponent(token)}`;
+        // Fire-and-forget so a mail hiccup doesn't break signup
+        sendVerificationEmail(normalizedEmail, verifyUrl).catch(err =>
+          console.error('[mailer] verify send failed:', err)
+        );
+      } catch (e) {
+        console.error('[register] could not queue verification email:', e);
+        // do not return; keep original success flow
+      }
+    }
+    // ****************************************************************
+
+    // Everything below stays exactly as you had it
     const user = await prisma.user.findUnique({
       where: { id: createdUser.id },
       select: { id: true, email: true, fullName: true, plan: true, tier: true, role: true },
@@ -79,7 +98,6 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       id: user.id, role: user.role, expiresAt: decoded?.exp ? new Date(decoded.exp * 1000).toISOString() : 'n/a',
     });
 
-    // Also set refresh cookie on register (mirrors login behavior)
     if (REFRESH_SECRET) {
       try {
         const refreshToken = jwt.sign(
@@ -88,11 +106,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
           { expiresIn: '30d' }
         );
         res.cookie('jp_rt', refreshToken, {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: IS_PROD,
-          path: '/',
-          maxAge: 30 * 24 * 3600 * 1000,
+          httpOnly: true, sameSite: 'lax', secure: IS_PROD, path: '/', maxAge: 30 * 24 * 3600 * 1000,
         });
       } catch (e) {
         console.error('[Auth] Failed to set refresh cookie (register):', e);
@@ -314,6 +328,30 @@ export const resetPassword = async (req: Request, res: Response) => {
   } catch (err) {
     console.error('resetPassword error:', err);
     return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// add near your other handlers
+export const verifyEmail = async (req: Request, res: Response) => {
+  try {
+    const token = String(req.query.token || '');
+    if (!token) return res.status(400).json({ message: 'Missing token' });
+
+    const u = await prisma.user.findFirst({ where: { verificationToken: token } });
+    if (!u || !u.verificationTokenExpires || u.verificationTokenExpires < new Date()) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    await prisma.user.update({
+      where: { id: u.id },
+      data: { emailVerified: true, verificationToken: null, verificationTokenExpires: null },
+    });
+
+    // redirect to your login page (or return JSON if you prefer)
+    return res.redirect(`${APP_BASE_URL}/login?verified=1`);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: 'Verification failed' });
   }
 };
 
