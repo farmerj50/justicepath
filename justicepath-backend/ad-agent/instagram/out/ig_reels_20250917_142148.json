@@ -1,0 +1,58 @@
+{
+  "scripts": [
+    {
+      "hook": "Facing eviction in Georgia? You're not alone!",
+      "beats": [
+        "Understand your rights as a tenant.",
+        "Learn how to file for eviction or small claims.",
+        "Access our easy-to-use self-help tools."
+      ],
+      "cta": "Start free at https://justicepathlaw.com/eviction",
+      "disclaimer": "JusticePath provides self-help tools and information, not legal advice.",
+      "caption": "Georgia-specific self-help tools. Not legal advice.",
+      "hashtags": [
+        "#Georgia",
+        "#MagistrateCourt",
+        "#Eviction",
+        "#SmallClaims",
+        "#JusticePath"
+      ]
+    },
+    {
+      "hook": "Need to file a small claim? We've got you covered!",
+      "beats": [
+        "Step-by-step guides for filing in Georgia.",
+        "Tips to prepare your case effectively.",
+        "Get started on your claim today!"
+      ],
+      "cta": "Start free at https://justicepathlaw.com/eviction",
+      "disclaimer": "JusticePath provides self-help tools and information, not legal advice.",
+      "caption": "Georgia-specific self-help tools. Not legal advice.",
+      "hashtags": [
+        "#Georgia",
+        "#MagistrateCourt",
+        "#Eviction",
+        "#SmallClaims",
+        "#JusticePath"
+      ]
+    },
+    {
+      "hook": "Worried about eviction? Take action now!",
+      "beats": [
+        "Find out if you qualify for assistance.",
+        "Navigate the eviction process with ease.",
+        "Empower yourself with the right information."
+      ],
+      "cta": "Start free at https://justicepathlaw.com/eviction",
+      "disclaimer": "JusticePath provides self-help tools and information, not legal advice.",
+      "caption": "Georgia-specific self-help tools. Not legal advice.",
+      "hashtags": [
+        "#Georgia",
+        "#MagistrateCourt",
+        "#Eviction",
+        "#SmallClaims",
+        "#JusticePath"
+      ]
+    }
+  ]
+}
