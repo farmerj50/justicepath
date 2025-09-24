@@ -19,6 +19,10 @@ model User {
   role                 Role                  @default(USER)
   aiGeneratedDocuments AiGeneratedDocument[]
   documents            Document[]
+
+  emailVerified            Boolean   @default(false)
+  verificationToken        String?   @unique
+  verificationTokenExpires DateTime?
 }
 
 model Document {

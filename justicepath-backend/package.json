@@ -7,6 +7,12 @@
     "dev": "cross-env NODE_ENV=development prisma generate && ts-node-dev src/server.ts",
     "dev:nogen": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "npx prisma generate && tsc",
+    "ig:reels": "ts-node -r dotenv/config -P ad-agent/tsconfig.json ad-agent/instagram/gen-instagram.ts --reels",
+    "ig:static": "ts-node -r dotenv/config -P ad-agent/tsconfig.json ad-agent/instagram/gen-instagram.ts --static",
+    "ig:carousel": "ts-node -r dotenv/config -P ad-agent/tsconfig.json ad-agent/instagram/gen-instagram.ts --carousel",
+    "ig:export": "ts-node -r dotenv/config -P ad-agent/tsconfig.json ad-agent/export-meta.ts",
+    "ad:google": "ts-node -r dotenv/config -P ad-agent/tsconfig.json ad-agent/generate.ts --google --intent=\"Georgia eviction filing\" --url=\"https://justicepathlaw.com/eviction\"",
+    "ad:export:google": "ts-node -r dotenv/config -P ad-agent/tsconfig.json ad-agent/export-google.ts",
     "start": "NODE_ENV=production node dist/server.js"
   },
   "author": "",

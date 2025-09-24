@@ -14,6 +14,7 @@ import {
   refreshSession,
   getProfile,
   resetPassword,
+  verifyEmail,
 } from '../controllers/authControllers';
 
 const router = express.Router();
@@ -30,5 +31,8 @@ router.post('/refresh',  refreshSession);
 // Profile & password
 router.get('/me', authenticate, getProfile);
 router.post('/reset-password', authenticate, resetPassword);
+router.get('/auth/verify', verifyEmail);
+
+
 
 export default router;
