@@ -99,9 +99,16 @@ jobs:
         env:
           IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           API_BASE: ${{ vars.FRONTEND_API_URL}}
+          API_BASE_STATIC:  ${{ vars.FRONTEND_API_URL }}
           FRONTEND_DIR: ${{ env.FRONTEND_DIR }}
+          API_BASE_DEPLOYED: ${{ steps.deploy_api.outputs.url }}
         run: |
           set -e
+
+          echo "API_BASE=$API_BASE"
+          test -n "$API_BASE" || { echo "ERROR: FRONTEND_API_URL (repo variable) is empty"; exit 1; }
+
+
           docker build \
             --build-arg VITE_API_URL="$API_BASE" \
             -f "$FRONTEND_DIR/Dockerfile" \
