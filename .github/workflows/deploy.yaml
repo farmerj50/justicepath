@@ -93,16 +93,16 @@ jobs:
           echo "::notice::Using API base: $API_BASE"
 
       - name: Build & push WEB image
-        env:
-          IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
-          VITE_API_URL: ${{ steps.decide_api.outputs.api_base }}
-        run: |
-          set -e
-          docker build \
-            --build-arg VITE_API_URL="$VITE_API_URL" \
-            -f "$FRONTEND_DIR/Dockerfile" \
-            -t "$IMAGE_WEB" "$FRONTEND_DIR"
-          docker push "$IMAGE_WEB"
+  env:
+    IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+  run: |
+    set -e
+    docker build \
+      --build-arg VITE_API_URL="${{ vars.FRONTEND_API_URL }}" \
+      --build-arg VITE_SYNC_FUSION_KEY="${{ secrets.SYNCFUSION_KEY }}" \
+      -f "$FRONTEND_DIR/Dockerfile" \
+      -t "$IMAGE_WEB" "$FRONTEND_DIR"
+    docker push "$IMAGE_WEB"
 
       - name: Deploy WEB
         id: deploy_web
