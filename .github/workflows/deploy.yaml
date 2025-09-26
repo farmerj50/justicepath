@@ -20,11 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      REGION: ${{ vars.GCP_REGION }}          # e.g. us-east1
-      AR_LOCATION: ${{ vars.AR_LOCATION }}    # e.g. us-east1
+      REGION: ${{ vars.GCP_REGION }}          # Cloud Run region (e.g., us-east4)
+      AR_LOCATION: ${{ vars.AR_LOCATION }}    # AR location (us-east1)
       AR_REPO: ${{ vars.AR_REPO }}            # justicepath
       BACKEND_DIR: justicepath-backend
       FRONTEND_DIR: .
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,7 +55,7 @@ jobs:
           test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
 
       # -------------------------------
-      # Build & deploy API (container image, not --source)
+      # Build & deploy API
       # -------------------------------
       - name: Build & push API image
         env:
@@ -81,8 +82,10 @@ jobs:
             JWT_SECRET=${{ secrets.JWT_SECRET }}
           flags: --allow-unauthenticated
 
+          
+
       # -------------------------------
-      # Build WEB with the correct API URL (bake at build time)
+      # Build WEB with the correct API URL
       # -------------------------------
       - name: Decide API base for frontend
         id: decide_api
@@ -93,16 +96,17 @@ jobs:
           echo "::notice::Using API base: $API_BASE"
 
       - name: Build & push WEB image
-  env:
-    IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
-  run: |
-    set -e
-    docker build \
-      --build-arg VITE_API_URL="${{ vars.FRONTEND_API_URL }}" \
-      --build-arg VITE_SYNC_FUSION_KEY="${{ secrets.SYNCFUSION_KEY }}" \
-      -f "$FRONTEND_DIR/Dockerfile" \
-      -t "$IMAGE_WEB" "$FRONTEND_DIR"
-    docker push "$IMAGE_WEB"
+        env:
+          IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          API_BASE: ${{ steps.decide_api.outputs.api_base }}
+          FRONTEND_DIR: ${{ env.FRONTEND_DIR }}
+        run: |
+          set -e
+          docker build \
+            --build-arg VITE_API_URL="$API_BASE" \
+            -f "$FRONTEND_DIR/Dockerfile" \
+            -t "$IMAGE_WEB" "$FRONTEND_DIR"
+          docker push "$IMAGE_WEB"
 
       - name: Deploy WEB
         id: deploy_web
@@ -114,7 +118,7 @@ jobs:
           flags: --allow-unauthenticated
 
       # -------------------------------
-      # Patch API CORS with the live WEB URL (safe JSON)
+      # Patch API CORS with the live WEB URL
       # -------------------------------
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
