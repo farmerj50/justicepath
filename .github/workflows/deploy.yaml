@@ -98,7 +98,7 @@ jobs:
       - name: Build & push WEB image
         env:
           IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
-          API_BASE: ${{ steps.decide_api.outputs.api_base }}
+          API_BASE: ${{ steps.decide_api.outputs.url }}
           FRONTEND_DIR: ${{ env.FRONTEND_DIR }}
         run: |
           set -e
