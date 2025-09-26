@@ -10,6 +10,9 @@ COPY . .
 # Accept API URL at build time and expose to Vite
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+RUN test -n "$VITE_API_URL"
+RUN node -e "console.log('VITE_API_URL at build =', process.env.VITE_API_URL || 'MISSING')" \
+ && printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production
 
 # Fail fast if not provided
 RUN test -n "$VITE_API_URL"
