@@ -7,13 +7,17 @@ RUN npm ci
 
 COPY . .
 
-# ⬇️ receive the API URL from CI and expose it to Vite at build time
+# Accept API URL at build time and expose to Vite
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
-# (extra-safe) also write .env.production so Vite/dotenv can load it
-RUN echo "VITE_API_URL=${VITE_API_URL}" > .env.production
 
-# build the SPA
+# Fail fast if not provided
+RUN test -n "$VITE_API_URL"
+
+# Write .env.production so Vite picks it up during build
+RUN printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production
+
+# Build the SPA
 RUN npm run build
 
 # --- Runtime stage ---
@@ -24,5 +28,5 @@ RUN npm i -g serve
 COPY --from=build /app/dist ./dist
 
 ENV PORT=8080
-# bind to Cloud Run's PORT
-CMD sh -c 'serve -s dist -l ${PORT:-8080}'
+# IMPORTANT: bind 0.0.0.0 for Cloud Run
+CMD sh -c 'serve -s dist -l tcp://0.0.0.0:${PORT:-8080}'

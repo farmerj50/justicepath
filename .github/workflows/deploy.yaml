@@ -82,6 +82,8 @@ jobs:
             JWT_SECRET=${{ secrets.JWT_SECRET }}
           flags: --allow-unauthenticated
 
+          
+
       # -------------------------------
       # Build WEB with the correct API URL
       # -------------------------------
