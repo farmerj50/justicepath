@@ -20,12 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      REGION: ${{ vars.GCP_REGION }}          # Cloud Run region (e.g., us-east4)
-      AR_LOCATION: ${{ vars.AR_LOCATION }}    # AR location (us-east1)
+      REGION: ${{ vars.GCP_REGION }}          # e.g. us-east1
+      AR_LOCATION: ${{ vars.AR_LOCATION }}    # e.g. us-east1
       AR_REPO: ${{ vars.AR_REPO }}            # justicepath
       BACKEND_DIR: justicepath-backend
       FRONTEND_DIR: .
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,7 +54,7 @@ jobs:
           test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
 
       # -------------------------------
-      # Build & deploy API
+      # Build & deploy API (container image, not --source)
       # -------------------------------
       - name: Build & push API image
         env:
@@ -82,10 +81,8 @@ jobs:
             JWT_SECRET=${{ secrets.JWT_SECRET }}
           flags: --allow-unauthenticated
 
-          
-
       # -------------------------------
-      # Build WEB with the correct API URL
+      # Build WEB with the correct API URL (bake at build time)
       # -------------------------------
       - name: Decide API base for frontend
         id: decide_api
@@ -117,7 +114,7 @@ jobs:
           flags: --allow-unauthenticated
 
       # -------------------------------
-      # Patch API CORS with the live WEB URL
+      # Patch API CORS with the live WEB URL (safe JSON)
       # -------------------------------
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
