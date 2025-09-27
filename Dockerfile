@@ -11,7 +11,7 @@ COPY . .
 
 # Optional override via build arg; otherwise use the committed .env.production
 # (This avoids broken builds when CI forgets to pass VITE_API_URL.)
-ARG VITE_API_URL
+ARG VITE_API_URL=/api
 RUN if [ -n "$VITE_API_URL" ]; then \
       printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production; \
     fi && \
@@ -30,7 +30,9 @@ RUN npm i -g serve
 
 # Copy build artifacts
 COPY --from=build /app/dist ./dist
-COPY serve.json ./ 
+COPY package.json .
+COPY package-lock.json .
+COPY serve.json . 
 
 # Cloud Run listens on $PORT; bind to 0.0.0.0
 ENV PORT=8080
