@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 .env
 justicepath-backend/uploads/
+! .env.production
+
