@@ -18,6 +18,7 @@ import {
 } from '../controllers/authControllers';
 
 const router = express.Router();
+console.log(router);
 
 router.get('/test', (_req, res) => {
   res.status(200).json({ success: true, message: 'API is alive in prod 🚀' });
