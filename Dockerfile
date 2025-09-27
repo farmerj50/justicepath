@@ -30,6 +30,7 @@ RUN npm i -g serve
 
 # Copy build artifacts
 COPY --from=build /app/dist ./dist
+COPY serve.json ./ 
 
 # Cloud Run listens on $PORT; bind to 0.0.0.0
 ENV PORT=8080
