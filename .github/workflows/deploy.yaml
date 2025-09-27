@@ -122,10 +122,14 @@ jobs:
             -t "$IMAGE_WEB_TAG" "$FRONTEND_DIR"
 
           # Prove VITE_API_URL was baked into the image
-          docker run --rm "$IMAGE_WEB_TAG" sh -lc '
-            echo ">>> .env.production:"; cat .env.production || true
-            grep -qE "^VITE_API_URL=" .env.production || { echo "VITE_API_URL NOT BAKED"; exit 1; }
-            VAL=$(cut -d= -f2- .env.production); [ -n "$VAL" ] || { echo "VITE_API_URL empty"; exit 1; }
+          docker run --rm -e EXPECT="$API_BASE" "$IMAGE_WEB_TAG" sh -lc '
+            echo ">>> Verifying API URL in dist..."
+            grep -R --binary-files=text -n "$EXPECT" dist >/dev/null || {
+            echo "API URL not found in built assets";
+            echo "Tip: ensure Dockerfile writes .env.production before \`npm run build\`.";
+            exit 1; 
+            }
+            echo ">>> OK: API URL found in built assets"
           '
 
           docker push "$IMAGE_WEB_TAG"
