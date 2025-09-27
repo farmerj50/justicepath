@@ -23,8 +23,8 @@ jobs:
       REGION: ${{ vars.GCP_REGION }}             # e.g., us-east1
       AR_LOCATION: ${{ vars.AR_LOCATION }}       # e.g., us
       AR_REPO: ${{ vars.AR_REPO }}               # e.g., web-repo
-      BACKEND_DIR: justicepath-backend           # <- matches your repo
-      FRONTEND_DIR: .                            # <- frontend is at repo root
+      BACKEND_DIR: justicepath-backend
+      FRONTEND_DIR: .
 
     steps:
       - name: Checkout
@@ -49,9 +49,7 @@ jobs:
         run: |
           echo "BACKEND_DIR=${BACKEND_DIR}"
           echo "FRONTEND_DIR=${FRONTEND_DIR}"
-          echo "---- repo root ----"
           ls -la
-          echo "---- backend dir ----"
           ls -la "$BACKEND_DIR"
           test -d "$BACKEND_DIR"  || { echo "Missing $BACKEND_DIR"; exit 1; }
           test -d "$FRONTEND_DIR" || { echo "Missing $FRONTEND_DIR"; exit 1; }
@@ -62,12 +60,18 @@ jobs:
       # Build & deploy API
       # -------------------------------
       - name: Build & push API image
+        id: build_api
         env:
-          IMAGE_API: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          IMAGE_API_TAG: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
         run: |
           set -e
-          docker build -f "$BACKEND_DIR/Dockerfile" -t "$IMAGE_API" "$BACKEND_DIR"
-          docker push "$IMAGE_API"
+          docker build --no-cache --pull \
+            -f "$BACKEND_DIR/Dockerfile" \
+            -t "$IMAGE_API_TAG" "$BACKEND_DIR"
+          docker push "$IMAGE_API_TAG"
+          # Record immutable digest for deploy
+          API_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_API_TAG")
+          echo "digest=$API_DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Deploy API
         id: deploy_api
@@ -75,7 +79,9 @@ jobs:
         with:
           service: ${{ vars.CR_SERVICE_API }}
           region: ${{ env.REGION }}
-          image: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          # Deploy by digest (immutable)
+          image: ${{ steps.build_api.outputs.digest }}
+          revision_traffic: latest=100
           env_vars_update_strategy: merge
           env_vars: |
             NODE_ENV=production
@@ -93,33 +99,33 @@ jobs:
         id: decide_api
         shell: bash
         run: |
-          # Prefer deployed API URL; fallback to /api if you have LB path routing
           API_BASE="${{ steps.deploy_api.outputs.url }}"
           if [ -z "$API_BASE" ]; then API_BASE="${{ vars.FRONTEND_API_URL }}"; fi
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "::notice::Using API base: $API_BASE"
 
       - name: Build & push WEB image
+        id: build_web
         env:
-          IMAGE_WEB: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          IMAGE_WEB_TAG: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
           API_BASE: ${{ steps.decide_api.outputs.api_base }}
           FRONTEND_DIR: ${{ env.FRONTEND_DIR }}
         run: |
           set -e
           echo ">>> CI: API_BASE=$API_BASE"
           test -n "$API_BASE" || { echo "ERROR: API_BASE empty"; exit 1; }
-          ls -la "$FRONTEND_DIR"
 
-          docker build \
-            --no-cache --pull \
+          docker build --no-cache --pull \
             --build-arg VITE_API_URL="$API_BASE" \
             -f "$FRONTEND_DIR/Dockerfile" \
-            -t "$IMAGE_WEB" "$FRONTEND_DIR"
+            -t "$IMAGE_WEB_TAG" "$FRONTEND_DIR"
 
-          # prove .env.production is baked into the image
-          docker run --rm "$IMAGE_WEB" sh -lc 'echo ">>> RUNTIME: $(cat /app/.env.production 2>/dev/null || echo MISSING)"'
+          # sanity: confirm Vite env baked
+          docker run --rm "$IMAGE_WEB_TAG" sh -lc 'echo ">>> RUNTIME: $(grep -E ^VITE_API_URL= .env.production 2>/dev/null || echo MISSING)"'
 
-          docker push "$IMAGE_WEB"
+          docker push "$IMAGE_WEB_TAG"
+          WEB_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_WEB_TAG")
+          echo "digest=$WEB_DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Deploy WEB
         id: deploy_web
@@ -127,7 +133,9 @@ jobs:
         with:
           service: ${{ vars.CR_SERVICE_WEB }}
           region: ${{ env.REGION }}
-          image: ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_WEB }}:${{ github.sha }}
+          # Deploy by digest (immutable)
+          image: ${{ steps.build_web.outputs.digest }}
+          revision_traffic: latest=100
           flags: --allow-unauthenticated
 
       # -------------------------------
@@ -155,7 +163,7 @@ jobs:
         with:
           service: ${{ vars.CR_SERVICE_API }}
           region:  ${{ env.REGION }}
-          image:   ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          image:   ${{ steps.build_api.outputs.digest }}
           env_vars_update_strategy: merge
           env_vars: |
             CORS_ALLOWLIST_JSON=${{ steps.cors.outputs.ALLOW }}
