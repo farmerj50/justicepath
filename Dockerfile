@@ -1,35 +1,23 @@
-# --- Build stage ---
+# --- build ---
 FROM node:20-alpine AS build
 WORKDIR /app
-
 COPY package*.json ./
 RUN npm ci
-
 COPY . .
 
-# Accept API URL at build time and expose to Vite
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
-RUN test -n "$VITE_API_URL"
-RUN node -e "console.log('VITE_API_URL at build =', process.env.VITE_API_URL || 'MISSING')" \
- && printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production
+# Accept API URL; default to /api so LB routing works
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
 
-# Fail fast if not provided
-RUN test -n "$VITE_API_URL"
-
-# Write .env.production so Vite picks it up during build
+# Bake it for Vite and prove it in logs
 RUN printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production
-
-# Build the SPA
+RUN echo ">>> BUILD: VITE_API_URL=$VITE_API_URL"
 RUN npm run build
 
-# --- Runtime stage ---
+# --- runtime ---
 FROM node:20-alpine
 WORKDIR /app
-
 RUN npm i -g serve
 COPY --from=build /app/dist ./dist
-
 ENV PORT=8080
-# IMPORTANT: bind 0.0.0.0 for Cloud Run
-CMD sh -c 'serve -s dist -l tcp://0.0.0.0:${PORT:-8080}'
+CMD ["sh","-c","serve -s dist -l tcp://0.0.0.0:${PORT:-8080}"]
