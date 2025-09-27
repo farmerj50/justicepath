@@ -24,7 +24,7 @@ jobs:
       AR_LOCATION: ${{ vars.AR_LOCATION }}       # e.g., us
       AR_REPO: ${{ vars.AR_REPO }}               # e.g., artifact-registry-repo
       BACKEND_DIR: justicepath-backend
-      FRONTEND_DIR: .
+      FRONTEND_DIR: .                            # repo root (must contain Dockerfile)
 
     steps:
       - name: Checkout
@@ -99,12 +99,14 @@ jobs:
         id: decide_api
         shell: bash
         run: |
-          # Prefer deployed API URL; fallback to /api (LB path routing)
+          # On main, always go through the load balancer path (/api).
+          # For PRs/other branches, prefer the freshly deployed API URL, else fall back to /api.
           if [ "${{ github.ref_name }}" = "main" ]; then
-          API_BASE="/api"
+            API_BASE="/api"
           else
-          [ -z "$API_BASE" ] && API_BASE="/api"
-          if
+            API_BASE="${{ steps.deploy_api.outputs.url }}"
+            [ -z "$API_BASE" ] && API_BASE="/api"
+          fi
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "::notice::Using API base: $API_BASE"
 
@@ -124,13 +126,13 @@ jobs:
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB_TAG" "$FRONTEND_DIR"
 
-          # Prove VITE_API_URL was baked into the image
+          # Verify the baked API URL is really in the built assets the browser will load.
           docker run --rm -e EXPECT="$API_BASE" "$IMAGE_WEB_TAG" sh -lc '
             echo ">>> Verifying API URL in dist..."
             grep -R --binary-files=text -n "$EXPECT" dist >/dev/null || {
-            echo "API URL not found in built assets";
-            echo "Tip: ensure Dockerfile writes .env.production before \`npm run build\`.";
-            exit 1; 
+              echo "API URL not found in built assets";
+              echo "Tip: ensure your Dockerfile writes .env.production before \`npm run build\`.";
+              exit 1;
             }
             echo ">>> OK: API URL found in built assets"
           '
