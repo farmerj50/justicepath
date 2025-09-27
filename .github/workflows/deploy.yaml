@@ -116,7 +116,7 @@ jobs:
           test -n "$API_BASE" || { echo "ERROR: API_BASE empty"; exit 1; }
 
           docker build --no-cache --pull \
-            --build-arg VITE_API_URL="$API_BASE" \
+            --build-arg VITE_API_URL="/API" \
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB_TAG" "$FRONTEND_DIR"
 
