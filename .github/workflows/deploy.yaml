@@ -22,7 +22,7 @@ jobs:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       REGION: ${{ vars.GCP_REGION }}             # e.g., us-east1
       AR_LOCATION: ${{ vars.AR_LOCATION }}       # e.g., us
-      AR_REPO: ${{ vars.AR_REPO }}               # e.g., web-repo
+      AR_REPO: ${{ vars.AR_REPO }}               # e.g., artifact-registry-repo
       BACKEND_DIR: justicepath-backend
       FRONTEND_DIR: .
 
@@ -49,8 +49,8 @@ jobs:
         run: |
           echo "BACKEND_DIR=${BACKEND_DIR}"
           echo "FRONTEND_DIR=${FRONTEND_DIR}"
-          ls -la
-          ls -la "$BACKEND_DIR"
+          echo "---- repo root ----"; ls -la
+          echo "---- backend dir ----"; ls -la "$BACKEND_DIR"
           test -d "$BACKEND_DIR"  || { echo "Missing $BACKEND_DIR"; exit 1; }
           test -d "$FRONTEND_DIR" || { echo "Missing $FRONTEND_DIR"; exit 1; }
           test -f "$BACKEND_DIR/Dockerfile"  || { echo "No Dockerfile in $BACKEND_DIR"; exit 1; }
@@ -99,8 +99,9 @@ jobs:
         id: decide_api
         shell: bash
         run: |
+          # Prefer deployed API URL; fallback to /api (LB path routing)
           API_BASE="${{ steps.deploy_api.outputs.url }}"
-          if [ -z "$API_BASE" ]; then API_BASE="${{ vars.FRONTEND_API_URL }}"; fi
+          if [ -z "$API_BASE" ]; then API_BASE="/api"; fi
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "::notice::Using API base: $API_BASE"
 
@@ -116,12 +117,16 @@ jobs:
           test -n "$API_BASE" || { echo "ERROR: API_BASE empty"; exit 1; }
 
           docker build --no-cache --pull \
-            --build-arg VITE_API_URL="/API" \
+            --build-arg VITE_API_URL="$API_BASE" \
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB_TAG" "$FRONTEND_DIR"
 
-          # sanity: confirm Vite env baked
-          docker run --rm "$IMAGE_WEB_TAG" sh -lc 'echo ">>> RUNTIME: $(grep -E ^VITE_API_URL= .env.production 2>/dev/null || echo MISSING)"'
+          # Prove VITE_API_URL was baked into the image
+          docker run --rm "$IMAGE_WEB_TAG" sh -lc '
+            echo ">>> .env.production:"; cat .env.production || true
+            grep -qE "^VITE_API_URL=" .env.production || { echo "VITE_API_URL NOT BAKED"; exit 1; }
+            VAL=$(cut -d= -f2- .env.production); [ -n "$VAL" ] || { echo "VITE_API_URL empty"; exit 1; }
+          '
 
           docker push "$IMAGE_WEB_TAG"
           WEB_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_WEB_TAG")

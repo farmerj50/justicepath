@@ -2,38 +2,37 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Install deps
+# Core deps first for better layer reuse
 COPY package*.json ./
 RUN npm ci
 
 # App source
 COPY . .
 
-# Optional override via build arg; otherwise use the committed .env.production
-# (This avoids broken builds when CI forgets to pass VITE_API_URL.)
+# Bake API base: default to /api (works with the LB path rule)
+# CI can override with --build-arg VITE_API_URL="https://<cloud-run-backend-url>"
 ARG VITE_API_URL=/api
-RUN if [ -n "$VITE_API_URL" ]; then \
-      printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production; \
-    fi && \
-    echo "Effective .env.production:" && cat .env.production
+RUN printf "VITE_API_URL=%s\n" "$VITE_API_URL" > .env.production \
+ && echo "Effective .env.production:" && cat .env.production
 
-# Build the SPA (Vite reads .env.production automatically in production mode)
+# If you keep the file as server.json, expose it as serve.json for the "serve" binary.
+# (Safe no-op if neither exists.)
+RUN [ -f server.json ] && cp server.json serve.json || true
+
+# Build the SPA (Vite reads .env.production in prod builds)
 RUN npm run build
-
 
 # --- Runtime stage ---
 FROM node:20-alpine
 WORKDIR /app
 
-# Static server
+# Tiny static server
 RUN npm i -g serve
 
-# Copy build artifacts
+# Ship built assets and caching headers file
 COPY --from=build /app/dist ./dist
-COPY package.json .
-COPY package-lock.json .
-COPY serve.json . 
+COPY --from=build /app/serve.json ./serve.json
 
-# Cloud Run listens on $PORT; bind to 0.0.0.0
+# Cloud Run port
 ENV PORT=8080
 CMD ["sh","-c","serve -s dist -l tcp://0.0.0.0:${PORT:-8080}"]
