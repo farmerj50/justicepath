@@ -100,8 +100,11 @@ jobs:
         shell: bash
         run: |
           # Prefer deployed API URL; fallback to /api (LB path routing)
-          API_BASE="${{ steps.deploy_api.outputs.url }}"
-          if [ -z "$API_BASE" ]; then API_BASE="/api"; fi
+          if [ "${{ github.ref_name }}" = "main" ]; then
+          API_BASE="/api"
+          else
+          [ -z "$API_BASE" ] && API_BASE="/api"
+          if
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
           echo "::notice::Using API base: $API_BASE"
 
