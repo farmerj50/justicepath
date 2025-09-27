@@ -56,7 +56,11 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/payment', stripeRoutes);
 
 // Static
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDir, {
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'no-store')
+;}
+}));
 
 
 export default app;
