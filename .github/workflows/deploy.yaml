@@ -20,11 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      REGION: ${{ vars.GCP_REGION }}
-      AR_LOCATION: ${{ vars.AR_LOCATION }}
-      AR_REPO: ${{ vars.AR_REPO }}
-      BACKEND_DIR: justicepath-backend
-      FRONTEND_DIR: justicepath-app
+      REGION: ${{ vars.GCP_REGION }}             # e.g., us-east1
+      AR_LOCATION: ${{ vars.AR_LOCATION }}       # e.g., us
+      AR_REPO: ${{ vars.AR_REPO }}               # e.g., web-repo
+      BACKEND_DIR: justicepath-backend           # <- matches your repo
+      FRONTEND_DIR: .                            # <- frontend is at repo root
 
     steps:
       - name: Checkout
@@ -49,8 +49,12 @@ jobs:
         run: |
           echo "BACKEND_DIR=${BACKEND_DIR}"
           echo "FRONTEND_DIR=${FRONTEND_DIR}"
-          test -d "$BACKEND_DIR"  || { echo "Missing $BACKEND_DIR"; ls -la; exit 1; }
-          test -d "$FRONTEND_DIR" || { echo "Missing $FRONTEND_DIR"; ls -la; exit 1; }
+          echo "---- repo root ----"
+          ls -la
+          echo "---- backend dir ----"
+          ls -la "$BACKEND_DIR"
+          test -d "$BACKEND_DIR"  || { echo "Missing $BACKEND_DIR"; exit 1; }
+          test -d "$FRONTEND_DIR" || { echo "Missing $FRONTEND_DIR"; exit 1; }
           test -f "$BACKEND_DIR/Dockerfile"  || { echo "No Dockerfile in $BACKEND_DIR"; exit 1; }
           test -f "$FRONTEND_DIR/Dockerfile" || { echo "No Dockerfile in $FRONTEND_DIR"; exit 1; }
 
@@ -83,13 +87,13 @@ jobs:
           flags: --allow-unauthenticated
 
       # -------------------------------
-      # Build WEB with the correct API URL
+      # Build WEB with correct API URL
       # -------------------------------
       - name: Decide API base for frontend
         id: decide_api
         shell: bash
         run: |
-          # Prefer deployed API URL; fallback to repo var FRONTEND_API_URL (/api for LB setups)
+          # Prefer deployed API URL; fallback to /api if you have LB path routing
           API_BASE="${{ steps.deploy_api.outputs.url }}"
           if [ -z "$API_BASE" ]; then API_BASE="${{ vars.FRONTEND_API_URL }}"; fi
           echo "api_base=$API_BASE" >> "$GITHUB_OUTPUT"
@@ -104,6 +108,7 @@ jobs:
           set -e
           echo ">>> CI: API_BASE=$API_BASE"
           test -n "$API_BASE" || { echo "ERROR: API_BASE empty"; exit 1; }
+          ls -la "$FRONTEND_DIR"
 
           docker build \
             --no-cache --pull \
@@ -111,7 +116,7 @@ jobs:
             -f "$FRONTEND_DIR/Dockerfile" \
             -t "$IMAGE_WEB" "$FRONTEND_DIR"
 
-          # Prove .env.production baked in
+          # prove .env.production is baked into the image
           docker run --rm "$IMAGE_WEB" sh -lc 'echo ">>> RUNTIME: $(cat /app/.env.production 2>/dev/null || echo MISSING)"'
 
           docker push "$IMAGE_WEB"
@@ -126,4 +131,36 @@ jobs:
           flags: --allow-unauthenticated
 
       # -------------------------------
-      #
+      # Patch API CORS with the live WEB URL
+      # -------------------------------
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Build allowlist (domains + live WEB url)
+        id: cors
+        shell: bash
+        run: |
+          set -e
+          WEB_URL="${{ steps.deploy_web.outputs.url }}"
+          ALLOW=$(jq -cn \
+            --arg a https://justicepathlaw.com \
+            --arg b https://www.justicepathlaw.com \
+            --arg c "$WEB_URL" \
+            '[$a,$b,$c]')
+          echo "ALLOW=$ALLOW" >> "$GITHUB_OUTPUT"
+          echo "::notice::CORS_ALLOWLIST_JSON=$ALLOW"
+
+      - name: Patch API CORS_ALLOWLIST_JSON
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CR_SERVICE_API }}
+          region:  ${{ env.REGION }}
+          image:   ${{ env.AR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ vars.CR_SERVICE_API }}:${{ github.sha }}
+          env_vars_update_strategy: merge
+          env_vars: |
+            CORS_ALLOWLIST_JSON=${{ steps.cors.outputs.ALLOW }}
+
+      - name: Output URLs
+        run: |
+          echo "API URL: ${{ steps.deploy_api.outputs.url }}"
+          echo "WEB URL: ${{ steps.deploy_web.outputs.url }}"
