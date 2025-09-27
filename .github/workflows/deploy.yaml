@@ -81,7 +81,7 @@ jobs:
           region: ${{ env.REGION }}
           # Deploy by digest (immutable)
           image: ${{ steps.build_api.outputs.digest }}
-          revision_traffic: latest=100
+          revision_traffic: LATEST=100
           env_vars_update_strategy: merge
           env_vars: |
             NODE_ENV=production
@@ -135,7 +135,7 @@ jobs:
           region: ${{ env.REGION }}
           # Deploy by digest (immutable)
           image: ${{ steps.build_web.outputs.digest }}
-          revision_traffic: latest=100
+          revision_traffic: LATEST=100
           flags: --allow-unauthenticated
 
       # -------------------------------
