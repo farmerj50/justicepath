@@ -13,6 +13,7 @@ import openaiRoutes from './routes/openaiRoutes';
 import documentRoutes from './routes/documentRoutes';
 import stripeRoutes from './routes/stripeRoutes';
 import supportRoutes from './routes/support';
+import liveAssistRoutes from './routes/liveAssistRoutes';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -56,6 +57,7 @@ app.use('/api/openai', openaiRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/payment', stripeRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/live', liveAssistRoutes);
 
 // Static
 app.use('/uploads', express.static(uploadDir, {
