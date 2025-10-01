@@ -146,7 +146,7 @@ router.post('/analyze-document', async (req: Request<any, any, AnalyzeDocRequest
   }
 });
 
-// POST /api/follow-up
+// POST /api/ai/follow-up  (action-first)
 router.post('/follow-up', async (req: Request, res: Response) => {
   try {
     const {
@@ -155,36 +155,52 @@ router.post('/follow-up', async (req: Request, res: Response) => {
       documentType = '',
       state = '',
       city = '',
+      caseType = '',
+      jurisdiction = '',
+      forceAction = false
     } = req.body ?? {};
 
     if (!question || typeof question !== 'string') {
       return res.status(400).json({ error: 'Question is required.' });
     }
 
-    const system = `You are a zealous, detail-oriented landlord–tenant attorney.
-Write precise, actionable guidance with short paragraphs and bullet points.
-Tailor analysis to the user's jurisdiction when given.
-Do not repeat content already covered unless necessary to build a legal argument.
-Prefer statutes and deadlines; include simple citations (statute names/sections, no links).
-Return a VALID JSON object with keys: analysis, strategy, defenses, citations, clarify.`;
+  // detect action
+  const actionVerbRe = /\b(draft|write|prepare|generate|create|compose|produce|file|format|redraft|revise|provide|give|supply|furnish|make)\b/i;
+  const docNounRe = /\b(motion|pleading|petition|complaint|answer|affidavit|declaration|brief|memorandum|memo|notice|demand letter|letter|subpoena|interrogatories|requests? for (production|admission)|discovery|proposed order|order|continuance|extension|fee waiver|eviction answer|response|opposition|reply)\b/i;
+  const wantsAction = !!forceAction || /\bmotion to\b/i.test(question) || actionVerbRe.test(question) || docNounRe.test(question);
 
-    // We’ll *ask* for JSON and parse it, rather than using response_format,
-    // so we don't have to change the wrapper's type signature.
-    const userMsg =
-`Jurisdiction: ${city ? city + ', ' : ''}${state || 'Unknown'}
-Matter type: ${documentType || 'General'}
-Previous answer (context; avoid repeating): 
-${previousAnswer || '(none)'}
-Follow-up question (expand depth; add NEW analysis not already said): ${question}
+  const jurisdictionHint = jurisdiction || (state ? `${city ? city + ', ' : ''}${state}` : '');
 
-Respond ONLY with a compact JSON object:
-{
-  "analysis": "...",
-  "strategy": ["...", "..."],
-  "defenses": ["...", "..."],
-  "citations": ["Stat. § ...", "..."],
-  "clarify": ["Q1", "Q2", "Q3"]
-}`;
+  const draftSystem = [
+    'You are a legal drafting assistant.',
+    'OUTPUT POLICY:',
+    '- Output ONLY the full document between <<BEGIN DOC>> and <<END DOC>>.',
+    '- Do NOT ask clarifying questions.',
+    '- If details are unknown, insert bracket placeholders like [COUNTY], [DEFENDANT NAME], [CASE NO.].',
+    '- Include: caption, title, facts/intro, law/argument, requested relief, signature block, certificate of service, and a [PROPOSED ORDER] if appropriate.',
+    `- JURISDICTION LOCK: Use only this jurisdiction: ${jurisdictionHint || 'Unknown'}. Ignore any other jurisdiction mentioned in prior text.`,
+  ].join(' ');
+
+  const analysisSystem = [
+    'You are a zealous, detail-oriented landlord–tenant attorney.',
+    'Always answer directly without asking the user questions back.',
+    'If information is missing, make reasonable assumptions and add a single line starting with "Assumptions:".',
+    `JURISDICTION LOCK: Use only this jurisdiction: ${jurisdictionHint || 'Unknown'}. Ignore any other jurisdiction mentioned in prior text.`,
+    'Prefer statutes and deadlines; include simple citations (names/sections, no links).',
+    'Return a VALID JSON object with keys: analysis, strategy, defenses, citations, clarify.',
+  ].join(' ');
+
+  const system = wantsAction ? draftSystem : analysisSystem;
+
+  const userMsg = [
+    jurisdictionHint ? `Jurisdiction: ${jurisdictionHint}` : '',
+    (state || city) ? `User location: ${city ? city + ', ' : ''}${state}` : '',
+    documentType ? `Document type: ${documentType}` : '',
+    caseType ? `Case type: ${caseType}` : '',
+    // ⬇️ only include prior answer for analysis, NOT for drafting
+    (!wantsAction && previousAnswer) ? `Previous answer (context; avoid repeating):\n${previousAnswer}` : '',
+    `Follow-up request:\n${question}`,
+  ].filter(Boolean).join('\n\n');
 
     const resp = await chatWithLimits(req, {
       model: 'gpt-4o-mini',
@@ -193,22 +209,32 @@ Respond ONLY with a compact JSON object:
         { role: 'system', content: system },
         { role: 'user', content: userMsg },
       ],
-      // If you later extend chatWithLimits to pass through extra params,
-      // you could add: top_p, response_format, etc.
     });
 
     const raw = resp.choices?.[0]?.message?.content?.trim();
     if (!raw) return res.status(500).json({ error: 'Empty answer' });
 
-    let json: any;
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      // Fallback: wrap non-JSON content to avoid failing the request.
-      json = { analysis: raw };
+    if (wantsAction) {
+      // 📄 Extract the drafted document
+      const m = raw.match(/<<BEGIN DOC>>([\s\S]*?)<<END DOC>>/i);
+      const doc = (m?.[1] || raw).trim();
+      // Legacy compatibility: return "answer" AND "doc"
+      return res.json({ answer: doc, doc });
     }
 
-    return res.json(json);
+    // 🧩 Non-action path: keep JSON shape (never ask questions—include "Assumptions:" instead)
+    try {
+      const json = JSON.parse(raw);
+      return res.json({
+        analysis: String(json.analysis ?? ''),
+        strategy: Array.isArray(json.strategy) ? json.strategy : [],
+        defenses: Array.isArray(json.defenses) ? json.defenses : [],
+        citations: Array.isArray(json.citations) ? json.citations : [],
+        clarify: Array.isArray(json.clarify) ? json.clarify : []
+      });
+    } catch {
+      return res.json({ analysis: raw, strategy: [], defenses: [], citations: [], clarify: [] });
+    }
   } catch (e: any) {
     console.error('follow-up error:', e);
     return res.status(e?.status || 500).json({
@@ -217,5 +243,6 @@ Respond ONLY with a compact JSON object:
     });
   }
 });
+
 
 export default router;
