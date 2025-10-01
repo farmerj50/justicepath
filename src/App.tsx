@@ -17,6 +17,7 @@ import ViewDocument from './pages/ViewDocument';
 import DocumentsDashboard from './pages/DocumentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ResetPassword from './pages/ResetPassword';
+import LiveLawyersChat from './components/LiveLawyersChat';
 
 const App: React.FC = () => {
   return (
@@ -59,6 +60,9 @@ const App: React.FC = () => {
         <Route path="/documents/:id" element={<ViewDocument />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        // App router
+        <Route path="/live-chat" element={<LiveLawyersChat />} />
+
       </Routes>
     </div>
   );

@@ -85,6 +85,7 @@ const Navbar = () => {
           </div>
 
           <button onClick={handleDocumentsClick} className="hover:text-yellow-400 transition whitespace-nowrap">My Documents</button>
+          <Link to="/live-chat" className="hover:text-yellow-400 transition whitespace-nowrap">Live Chat</Link>
           <Link to="/pricing" className="hover:text-yellow-400 transition whitespace-nowrap">Pricing</Link>
           {user?.role === 'ADMIN' && <Link to="/admin-dashboard" className="hover:text-yellow-400 transition whitespace-nowrap">Admin</Link>}
           <Link to="/login" className="hover:text-yellow-400 transition whitespace-nowrap">Login</Link>
@@ -154,6 +155,7 @@ const Navbar = () => {
           </details>
 
           <button onClick={() => { setMobileOpen(false); handleDocumentsClick(); }} className="block w-full text-left py-2">My Documents</button>
+          <Link to="/live-chat" className="block py-2" onClick={() => setMobileOpen(false)}>Live Chat</Link>
           <Link to="/pricing" className="block py-2" onClick={() => setMobileOpen(false)}>Pricing</Link>
           {user?.role === 'ADMIN' && <Link to="/admin-dashboard" className="block py-2" onClick={() => setMobileOpen(false)}>Admin</Link>}
           <Link to="/login" className="block py-2" onClick={() => setMobileOpen(false)}>Login</Link>
