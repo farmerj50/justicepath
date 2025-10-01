@@ -3,12 +3,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Settings, Menu, X } from 'lucide-react'; // ⬅ add Menu/X
+import { Settings, Menu, X } from 'lucide-react';
+import SupportModal from '../components/SupportModal'; // ⬅️ NEW
 
 const Navbar = () => {
   const [caseDropdownOpen, setCaseDropdownOpen] = useState(false);
   const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false); // ⬅ mobile state
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [showSupport, setShowSupport] = useState(false); // ⬅️ NEW
 
   const caseDropdownRef = useRef<HTMLDivElement>(null);
   const settingsDropdownRef = useRef<HTMLDivElement>(null);
@@ -17,6 +19,7 @@ const Navbar = () => {
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const API_URL = import.meta.env.VITE_API_URL as string; // ⬅️ NEW
 
   const handleLogout = () => {
     localStorage.removeItem('justicepath-user');
@@ -97,9 +100,25 @@ const Navbar = () => {
               <Settings className="w-6 h-6" />
             </button>
             {settingsDropdownOpen && (
-              <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded shadow-lg w-40 z-50">
-                <button onClick={() => { setSettingsDropdownOpen(false); navigate('/reset-password'); }} className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition">Reset Password</button>
-                <button onClick={() => { setSettingsDropdownOpen(false); handleLogout(); }} className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition">Logout</button>
+              <div className="absolute right-0 mt-2 bg-gray-800 text-white rounded shadow-lg w-44 z-50">
+                <button
+                  onClick={() => { setSettingsDropdownOpen(false); setShowSupport(true); }}
+                  className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+                >
+                  Support
+                </button>
+                <button
+                  onClick={() => { setSettingsDropdownOpen(false); navigate('/reset-password'); }}
+                  className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+                >
+                  Reset Password
+                </button>
+                <button
+                  onClick={() => { setSettingsDropdownOpen(false); handleLogout(); }}
+                  className="block w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition"
+                >
+                  Logout
+                </button>
               </div>
             )}
           </div>
@@ -142,11 +161,37 @@ const Navbar = () => {
 
           {/* Settings (mobile) */}
           <div className="pt-2 border-t border-gray-800">
-            <button onClick={() => { setMobileOpen(false); navigate('/reset-password'); }} className="block w-full text-left py-2">Reset Password</button>
-            <button onClick={() => { setMobileOpen(false); handleLogout(); }} className="block w-full text-left py-2">Logout</button>
+            <button
+              onClick={() => { setMobileOpen(false); setShowSupport(true); }}
+              className="block w-full text-left py-2"
+            >
+              Support
+            </button>
+            <button
+              onClick={() => { setMobileOpen(false); navigate('/reset-password'); }}
+              className="block w-full text-left py-2"
+            >
+              Reset Password
+            </button>
+            <button
+              onClick={() => { setMobileOpen(false); handleLogout(); }}
+              className="block w-full text-left py-2"
+            >
+              Logout
+            </button>
           </div>
         </div>
       )}
+
+      {/* Support Modal */}
+      <SupportModal
+        open={showSupport}
+        onClose={() => setShowSupport(false)}
+        apiUrl={API_URL}
+        userId={user?.id}
+        userEmail={user?.email}
+        userName={user?.fullName}
+      />
     </nav>
   );
 };
