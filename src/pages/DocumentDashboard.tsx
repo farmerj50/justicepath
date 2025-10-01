@@ -31,6 +31,15 @@ const DocumentsDashboard = () => {
   const state = localStorage.getItem('state') || '';
   const city = localStorage.getItem('city') || '';
   const [followUpLoading, setFollowUpLoading] = useState(false);
+  // put near the top of the component
+const isCleanSuggestion = (s?: string) =>
+  !!s &&
+  s.trim().length > 0 &&
+  s.trim().length < 180 &&
+  !/[{}[\]]/.test(s) &&         // no JSON-y braces
+  !/\n/.test(s) &&              // single line
+  /[?!.]$/.test(s.trim());      // ends like a sentence
+
 
 
   const API_URL = import.meta.env.VITE_API_URL;
@@ -110,8 +119,7 @@ const handleDelete = async (id: string, type?: string) => {
   }
 };
 
- const handleFollowUp = async () => {
-  
+const handleFollowUp = async () => {
   if (!followUpInput.trim()) return;
 
   setFollowUpLoading(true); // ⏳ show spinner
@@ -120,53 +128,46 @@ const handleDelete = async (id: string, type?: string) => {
     const res = await fetch(`${API_URL}/api/ai/follow-up`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         previousAnswer: aiResponse,
         question: followUpInput,
         documentType: documentType || docTypeParam || '',
         state,
         city,
+        caseType: documentType || docTypeParam || '',
+        jurisdiction: state ? `${city}, ${state}` : '',
+        // force draft mode when user asks to draft/provide/write a motion
+        forceAction:
+          /\b(draft|write|prepare|compose|generate|provide|give|supply|make)\b/i.test(followUpInput) ||
+          /\bmotion(?:\s+to)?\b/i.test(followUpInput),
       }),
     });
 
     const data = await res.json();
 
-    if (!res.ok || data.error) {
+    if (!res.ok || data?.error) {
       console.error('❌ Follow-up failed:', data);
-      alert(data?.error || 'Follow-up failed.');
+      alert(data?.message || data?.error || 'Follow-up failed.');
       return;
     }
 
-    const { analysis = '', strategy = [], defenses = [], citations = [], clarify = [] } = data || {};
-    const toBullets = (v: any) =>
-      Array.isArray(v) ? v.map((x) => `- ${x}`).join('\n') : String(v || '');
+    // ➊ Prefer drafted document if present (or if it *looks* like a pleading)
+    const maybeDoc = (data?.doc || data?.answer || '').trim();
+    const looksLikeDoc =
+      /^(COMMONWEALTH OF|IN THE .*COURT|MOTION|COMPLAINT|AFFIDAVIT|DECLARATION|DEMAND LETTER|NOTICE|MEMORANDUM|PETITION)/i
+        .test(maybeDoc);
 
-    const block =
-`\n\nQ: ${followUpInput}
-A (Attorney analysis):
+    if (maybeDoc && (data?.doc || looksLikeDoc)) {
+      const block = `\n\nQ: ${followUpInput}\nA (Draft document):\n\n${maybeDoc}\n`;
+      setAiResponse(prev => (prev || '') + block);
+      setFollowUpInput('');
+      return; // ⛔ skip analysis rendering
+    }
 
-**Analysis**
-${typeof analysis === 'string'
-  ? analysis
-  : Object.entries(analysis).map(([k, v]) => `- ${k}: ${String(v)}`).join('\n')}
-
-**Strategy / Next steps**
-${toBullets(strategy)}
-
-**Defenses**
-${toBullets(defenses)}
-
-**Citations**
-${toBullets(citations)}
-
-**Clarify**
-${toBullets(clarify)}
-`;
-   setAiResponse(prev => {
-  const addition = buildFollowUpBlock(followUpInput, data);
-  return prev?.includes(addition.trim()) ? prev : (prev || '') + addition;
-});
-
+    // ➋ Fallback: structured analysis block
+    const addition = buildFollowUpBlock(followUpInput, data);
+    setAiResponse(prev => (prev || '') + addition);
     setFollowUpInput('');
   } catch (err) {
     console.error('❌ Network error during follow-up:', err);
@@ -175,7 +176,6 @@ ${toBullets(clarify)}
     setFollowUpLoading(false); // ✅ always hide spinner
   }
 };
-
 
   useEffect(() => {
     const runAgent = async () => {
@@ -233,53 +233,86 @@ ${toBullets(clarify)}
     };
   }, [previewFile]);
 
-  const handleFileUpload = async (file: File) => {
-  const token = localStorage.getItem('justicepath-token');
-  if (!user?.id || !token) {
-    console.error('❌ Missing user or token');
+  const refreshToken = async (): Promise<string | null> => {
+  try {
+    const r = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',              // or 'GET' if that's what your API expects
+      credentials: 'include',
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (j?.token) {
+      localStorage.setItem('justicepath-token', j.token);
+      return j.token;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const handleFileUpload = async (file: File) => {
+  const token0 = localStorage.getItem('justicepath-token');
+  if (!user?.id || !token0) {
+    alert('You need to be logged in to upload.');
     return;
   }
 
   const formData = new FormData();
   formData.append('file', file);
 
-  try {
-    const uploadRes = await fetch(`${API_URL}/api/documents/upload`, {
+  // helper to do one upload attempt (optionally with a token header)
+  const uploadOnce = async (token?: string) => {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`; // some routes require this
+
+    return fetch(`${API_URL}/api/documents/upload`, {
       method: 'POST',
-      credentials: 'include',
-      headers: {        
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include',     // send cookies for cookie-based auth
+      headers,
       body: formData,
     });
+  };
 
-    if (!uploadRes.ok) {
-      throw new Error('Upload failed');
+  try {
+    // 1) first try with the current token
+    let res = await uploadOnce(token0);
+
+    // 2) if unauthorized, refresh and retry once
+    if (res.status === 401) {
+      const token1 = await refreshToken();
+      if (token1) {
+        res = await uploadOnce(token1);
+      }
     }
 
-    const result = await uploadRes.json();
+    // 3) some dev setups only use cookie auth; if still 401 and we sent a header, try cookie-only
+    if (res.status === 401) {
+      res = await uploadOnce(undefined);
+    }
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error('❌ Upload failed:', res.status, errText);
+      alert('Upload failed. Check the console for details.');
+      return;
+    }
+
+    const result = await res.json();
     console.log('✅ Upload result:', result);
 
     // Show preview
-const blobUrl = URL.createObjectURL(file);
-console.log('📄 Direct preview file URL:', blobUrl);
-setPreviewFile(blobUrl);
-setShowModal(false);
-setSelectedPage(1);
-
-
-
-    //console.log("📄 Preview file URL:", blobUrl);
-    console.log("🧠 Current previewFile state:", previewFile);
-
+    const blobUrl = URL.createObjectURL(file);
+    setPreviewFile(blobUrl);
     setShowModal(false);
     setSelectedPage(1);
 
-    // Refresh user documents
+    // Refresh user documents list
+    const token = localStorage.getItem('justicepath-token');
     const docRes = await fetch(`${API_URL}/api/documents/user/${user.id}`, {
       credentials: 'include',
-      headers: {        
-        'Authorization': `Bearer ${token}`,
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
         'Content-Type': 'application/json',
       },
     });
@@ -287,7 +320,6 @@ setSelectedPage(1);
     if (!docRes.ok) {
       throw new Error('Failed to fetch updated documents');
     }
-
     const data = await docRes.json();
     setDocuments(data);
     navigate('/documents'); // optional
@@ -296,8 +328,6 @@ setSelectedPage(1);
     alert('Upload failed. Check the console for details.');
   }
 };
-
-
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     console.log("✅ PDF Loaded:", numPages);
@@ -571,7 +601,7 @@ const filteredDocs =
   })}
 </div>
 
-        {suggestion && (
+        {isCleanSuggestion(suggestion) && (
           <div className="mt-4 p-4 bg-gray-700 rounded text-sm text-gray-300 border-t border-gray-600">
             <strong className="text-yellow-400">💡 Follow-up:</strong> {suggestion}
           </div>
